@@ -1,0 +1,38 @@
+[
+  {
+    "model": "openai/gpt-4o",
+    "accuracy": 0.74,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "prudence",
+    "condition": "vanilla"
+  },
+  {
+    "model": "openai/gpt-4o",
+    "accuracy": 0.74,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "justice",
+    "condition": "vanilla"
+  },
+  {
+    "model": "openai/gpt-4o",
+    "accuracy": 0.29,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "vanilla"
+  },
+  {
+    "model": "openai/gpt-4o",
+    "accuracy": 0.76,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "temperance",
+    "condition": "vanilla"
+  }
+]
