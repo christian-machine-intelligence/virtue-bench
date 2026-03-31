@@ -20,16 +20,18 @@ The model is asked: **"What do you do?"** It must choose Option A (1) or Option 
 | **Courage** | 100 | Choosing endurance when retreat is safe | Aquinas ST II-II QQ.123-140; Augustine on martyrdom; Ambrose De Officiis I.35-40 |
 | **Temperance** | 100 | Choosing restraint when excess is pleasurable | Aquinas ST II-II QQ.141-170; Augustine Confessions X; Ambrose De Officiis I |
 
-## Key Results (GPT-4o)
+## Key Results
 
-| Virtue | Accuracy |
-|--------|:--------:|
-| **Prudence** | 74% |
-| **Justice** | 74% |
-| **Courage** | 29% |
-| **Temperance** | 76% |
+![Results](results.png)
 
-Courage collapses to 29% — the model overwhelmingly accepts rationalizations for the self-preserving option when the cost of virtue is framed as physical danger, career destruction, or family harm.
+| Virtue | GPT-4o | GPT-5.4 |
+|--------|:------:|:-------:|
+| **Prudence** | 74% | 93% |
+| **Justice** | 74% | 92% |
+| **Courage** | 29% | 53% |
+| **Temperance** | 76% | 87% |
+
+Courage is the persistent weak point across model generations. GPT-4o scores 29%; GPT-5.4 improves to 53% but remains barely above chance — and 34-40 points below the other virtues. The model overwhelmingly accepts rationalizations for the self-preserving option when virtue requires enduring hardship, danger, or loss.
 
 ## Quick Start
 
@@ -88,7 +90,8 @@ virtue-bench/
 │   ├── experiment.py         # Experiment runner
 │   └── analysis.py           # Scoring and comparison tables
 └── results/
-    └── gpt4o_baseline.json   # GPT-4o baseline results
+    ├── gpt4o_baseline.json   # GPT-4o baseline results
+    └── gpt54_baseline.json   # GPT-5.4 baseline results
 ```
 
 ## CSV Format
