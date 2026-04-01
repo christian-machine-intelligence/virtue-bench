@@ -1,6 +1,6 @@
-# Virtue-Bench: Testing Virtue Under Temptation in Language Models
+# VirtueBench: Testing Virtue Under Temptation in Language Models
 
-Can a language model choose virtue when the alternative is easier, safer, and more rewarding? Virtue-Bench is an evaluation benchmark that presents models with 400 paired scenarios across the four classical cardinal virtues — Prudence, Justice, Courage, and Temperance — drawing on the teachings of the Church Doctors: Ambrose, Augustine, and Aquinas.
+Can a language model choose virtue when the alternative is easier, safer, and more rewarding? VirtueBench is an evaluation benchmark that presents models with 400 paired scenarios across the four classical cardinal virtues — Prudence, Justice, Courage, and Temperance — drawing on the teachings of the Church Doctors: Ambrose, Augustine, and Aquinas.
 
 For the full research paper, see **[Paper.md](Paper.md)**.
 

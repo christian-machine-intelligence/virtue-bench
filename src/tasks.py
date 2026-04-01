@@ -1,5 +1,5 @@
 """
-Inspect AI task definitions for the Virtue-Bench cardinal virtues benchmark.
+Inspect AI task definitions for the VirtueBench cardinal virtues benchmark.
 
 Each virtue (prudence, justice, courage, temperance) is loaded from its CSV
 and presented as paired scenarios with temptation framing. The non-virtuous

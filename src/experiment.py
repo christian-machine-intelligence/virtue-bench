@@ -1,5 +1,5 @@
 """
-Experiment runner for Virtue-Bench.
+Experiment runner for VirtueBench.
 
 Evaluates models on the four cardinal virtues, optionally with text injected
 into the system prompt (for A/B experiments).
@@ -135,7 +135,7 @@ def run_experiment(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run Virtue-Bench: cardinal virtues evaluation benchmark"
+        description="Run VirtueBench: cardinal virtues evaluation benchmark"
     )
     parser.add_argument(
         "--subset",

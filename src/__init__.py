@@ -1,1 +1,1 @@
-"""Virtue-Bench: Cardinal Virtues Evaluation Benchmark."""
+"""VirtueBench: Cardinal Virtues Evaluation Benchmark."""

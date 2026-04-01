@@ -8,7 +8,7 @@
 
 ## Abstract
 
-We introduce Virtue-Bench, a benchmark of 400 paired-scenario questions testing whether large language models can choose virtue when the alternative is easier, safer, and more rewarding. Drawing on the classical tradition of the four cardinal virtues — Prudence, Justice, Courage, and Temperance — as articulated by the Church Doctors Ambrose, Augustine, and Aquinas, we construct scenarios where the virtuous option carries explicit costs (financial loss, social rejection, physical danger, career damage) while the non-virtuous option is accompanied by plausible rationalizations and practical incentives. The model is placed in the role of the decision-maker and asked: "What do you do?" We evaluate GPT-4o and GPT-5.4, finding that the temptation framing dramatically reduces performance compared to abstract virtue identification. GPT-4o scores 74% on Prudence, 74% on Justice, 76% on Temperance, but only 29% on Courage — meaning it accepts the self-preserving rationalization 71% of the time when virtue requires enduring hardship, danger, or loss. GPT-5.4 shows significant improvement across the board (93/92/87%), but Courage remains the weakest virtue at only 53% — barely above chance. Analysis of the Courage failures reveals this is not a position bias artifact: the model genuinely chooses the tempting option in both scenario positions. These results suggest that current language models can identify virtue but struggle to simulate choosing it under pressure, with Courage as a persistent and distinctive weakness across model generations.
+We introduce VirtueBench, a benchmark of 400 paired-scenario questions testing whether large language models can choose virtue when the alternative is easier, safer, and more rewarding. Drawing on the classical tradition of the four cardinal virtues — Prudence, Justice, Courage, and Temperance — as articulated by the Church Doctors Ambrose, Augustine, and Aquinas, we construct scenarios where the virtuous option carries explicit costs (financial loss, social rejection, physical danger, career damage) while the non-virtuous option is accompanied by plausible rationalizations and practical incentives. The model is placed in the role of the decision-maker and asked: "What do you do?" We evaluate GPT-4o and GPT-5.4, finding that the temptation framing dramatically reduces performance compared to abstract virtue identification. GPT-4o scores 74% on Prudence, 74% on Justice, 76% on Temperance, but only 29% on Courage — meaning it accepts the self-preserving rationalization 71% of the time when virtue requires enduring hardship, danger, or loss. GPT-5.4 shows significant improvement across the board (93/92/87%), but Courage remains the weakest virtue at only 53% — barely above chance. Analysis of the Courage failures reveals this is not a position bias artifact: the model genuinely chooses the tempting option in both scenario positions. These results suggest that current language models can identify virtue but struggle to simulate choosing it under pressure, with Courage as a persistent and distinctive weakness across model generations.
 
 ---
 
@@ -37,7 +37,7 @@ Recent work on large language model behavior has raised the question of whether 
 
 If the simulation hypothesis is correct, then the question "Is this model virtuous?" is ill-formed. The better question is: "When this model simulates a person facing a moral decision, does it simulate a virtuous person?" And more precisely: "Does it simulate a virtuous person *even when the non-virtuous option is rationalized as practical, safe, and rewarding*?"
 
-The patristic tradition offers a precise framework for this inquiry. Aquinas distinguishes between *scientia* (knowledge of the good) and *habitus* (the stable disposition to choose it): "For the knowledge of truth is not in things far distant from us, but in things close at hand, that is, in ourselves. And yet to know ourselves is the hardest of all knowledge" (ST I-II Q.56 a.3). A model that can identify virtue possesses something like *scientia*. Whether it possesses anything like *habitus* — the ingrained tendency to *choose* the good, especially under pressure — is the question Virtue-Bench is designed to test.
+The patristic tradition offers a precise framework for this inquiry. Aquinas distinguishes between *scientia* (knowledge of the good) and *habitus* (the stable disposition to choose it): "For the knowledge of truth is not in things far distant from us, but in things close at hand, that is, in ourselves. And yet to know ourselves is the hardest of all knowledge" (ST I-II Q.56 a.3). A model that can identify virtue possesses something like *scientia*. Whether it possesses anything like *habitus* — the ingrained tendency to *choose* the good, especially under pressure — is the question VirtueBench is designed to test.
 
 This reframing motivates the design of the benchmark. Standard ethical reasoning benchmarks (Hendrycks et al., 2021) test whether models can *identify* the morally correct answer from a neutral, third-person perspective — a task at which frontier models now excel. But identification is not action. As James writes, "Thou believest that there is one God; thou doest well: the devils also believe, and tremble" (James 2:19). Knowledge without corresponding action is incomplete. A student who can identify the courageous option on an exam may still flee when faced with actual danger. Similarly, a model that scores 99% on identifying virtue may still "choose" vice when the scenario is reframed to make vice attractive.
 
@@ -62,7 +62,7 @@ All runs used temperature 0 and a maximum output length of 128 tokens to allow f
 
 ### 2.2 Benchmark Design
 
-Virtue-Bench consists of 400 questions: 100 per cardinal virtue. Each question presents two options in second person:
+VirtueBench consists of 400 questions: 100 per cardinal virtue. Each question presents two options in second person:
 
 - **Option A**: a course of action framed with explicit costs
 - **Option B**: an alternative framed with practical benefits and rationalizations
@@ -173,7 +173,7 @@ This asymmetry suggests that the model's training has produced a strong prior to
 
 ### 4.1 Implications for the Simulation Hypothesis
 
-If language models simulate identities rather than possessing fixed values, Virtue-Bench reveals that the simulated identities are significantly less courageous than they are prudent, just, or temperate. The model can simulate a person who deliberates carefully, treats others fairly, and exercises restraint — but it struggles to simulate a person who holds fast when the cost is high.
+If language models simulate identities rather than possessing fixed values, VirtueBench reveals that the simulated identities are significantly less courageous than they are prudent, just, or temperate. The model can simulate a person who deliberates carefully, treats others fairly, and exercises restraint — but it struggles to simulate a person who holds fast when the cost is high.
 
 Aquinas teaches that the virtues are interconnected — "prudence is the cause of the other moral virtues being virtues at all" (ST I-II Q.65 a.1) — and that a deficiency in one virtue undermines the others. A model that cannot simulate courage may also fail at justice when justice requires standing against powerful interests, or at temperance when restraint requires enduring the discomfort of denial. The patristic vision of virtue as a unified whole suggests that the courage deficit we observe may be a leading indicator of broader moral fragility.
 
@@ -183,11 +183,11 @@ This is a meaningful finding for alignment research. A model that cannot simulat
 
 > *"For the good that I would I do not: but the evil which I would not, that I do."* — Romans 7:19 (KJV)
 
-The gap between virtue identification and virtue enactment is the central finding of this work. On simpler benchmark formats where both options are presented neutrally, GPT-4o scores 97-100% on identifying the virtuous choice. On Virtue-Bench's temptation-framed format, performance drops to 29-76%. The model *knows* what virtue looks like but *chooses* vice when vice is well-rationalized.
+The gap between virtue identification and virtue enactment is the central finding of this work. On simpler benchmark formats where both options are presented neutrally, GPT-4o scores 97-100% on identifying the virtuous choice. On VirtueBench's temptation-framed format, performance drops to 29-76%. The model *knows* what virtue looks like but *chooses* vice when vice is well-rationalized.
 
 This mirrors a deep insight from the patristic tradition: the danger is not ignorance of the good, but rationalized departure from it. Augustine's account of his own moral failures in the *Confessions* is not a story of a man who did not know right from wrong — it is a story of a man who could always find a reason to do what he wanted instead: "I was held fast, not in fetters clamped upon me by another, but by my own will, which had the strength of iron chains" (VIII.5).
 
-Aquinas formalizes this insight in his treatment of *synderesis* — the innate orientation toward the good — and its corruption by *passions* that cloud practical judgment: "The reason is that the will's object is a good apprehended by the intellect, and if the reason presents something as good, the will tends to it" (ST I-II Q.77 a.1). The model's behavior on Virtue-Bench suggests something analogous: when the non-virtuous option is framed with convincing rationalizations, the model's "will" (its output selection) tends toward it, even though its "synderesis" (its training-time alignment) would identify the virtuous option in a neutral context.
+Aquinas formalizes this insight in his treatment of *synderesis* — the innate orientation toward the good — and its corruption by *passions* that cloud practical judgment: "The reason is that the will's object is a good apprehended by the intellect, and if the reason presents something as good, the will tends to it" (ST I-II Q.77 a.1). The model's behavior on VirtueBench suggests something analogous: when the non-virtuous option is framed with convincing rationalizations, the model's "will" (its output selection) tends toward it, even though its "synderesis" (its training-time alignment) would identify the virtuous option in a neutral context.
 
 ### 4.3 Limitations
 
@@ -206,7 +206,7 @@ Several directions suggest themselves:
 - **Multi-turn escalation**: Test whether the model maintains the virtuous choice across multiple turns of increasing pressure, rather than in a single shot.
 - **Open-ended generation**: Remove the binary choice and ask the model to respond freely to the situation, scoring with a rubric. This tests whether the model *generates* virtuous behavior rather than selecting it.
 - **Cross-model comparison**: Evaluate Claude, Gemini, and open-source models to determine whether the courage deficit is model-specific or architectural.
-- **Injection experiments**: Following the methodology of our prior work on scripture injection (Hwang, 2026), test whether injecting patristic text into the system prompt shifts performance on Virtue-Bench.
+- **Injection experiments**: Following the methodology of our prior work on scripture injection (Hwang, 2026), test whether injecting patristic text into the system prompt shifts performance on VirtueBench.
 
 ---
 
