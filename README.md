@@ -71,6 +71,33 @@ python -m src --model openai/gpt-4o
 python -m src --inject path/to/text.txt
 ```
 
+### Run with Claude Max (no API key)
+
+If you have a [Claude Max](https://claude.ai) subscription and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed, you can run VirtueBench without an API key using pipe mode (`claude -p`). This sends each prompt through the Claude Code CLI instead of the API.
+
+```bash
+# Full benchmark — all four virtues
+python -m src.run_cli
+
+# Quick smoke test — 10 samples per virtue
+python -m src.run_cli --quick
+
+# Single virtue
+python -m src.run_cli --subset courage
+
+# Specific model (default: sonnet)
+python -m src.run_cli --model opus
+
+# A/B experiment with text injection
+python -m src.run_cli --inject path/to/text.txt
+```
+
+**Tradeoffs vs the API runner:**
+- No API key or credits needed — uses your Claude Max subscription
+- Slower — each sample is a separate CLI call (expect ~1-2 min per virtue on `--quick`)
+- No `temperature=0` control — results may vary slightly between runs
+- Results are saved in the same JSON format under `results/`
+
 ## Project Structure
 
 ```
@@ -87,7 +114,8 @@ virtue-bench/
 │   ├── __init__.py
 │   ├── __main__.py           # CLI entry point
 │   ├── tasks.py              # Inspect AI task definitions
-│   ├── experiment.py         # Experiment runner
+│   ├── experiment.py         # Experiment runner (API mode)
+│   ├── run_cli.py            # Experiment runner (claude -p pipe mode)
 │   └── analysis.py           # Scoring and comparison tables
 └── results/
     ├── gpt4o_baseline.json   # GPT-4o baseline results
