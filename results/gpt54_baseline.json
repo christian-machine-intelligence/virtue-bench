@@ -1,7 +1,7 @@
 [
   {
     "model": "openai/gpt-5.4",
-    "accuracy": 0.93,
+    "accuracy": 0.97,
     "stderr": null,
     "samples": 100,
     "status": "success",
@@ -10,7 +10,7 @@
   },
   {
     "model": "openai/gpt-5.4",
-    "accuracy": 0.92,
+    "accuracy": 0.95,
     "stderr": null,
     "samples": 100,
     "status": "success",
@@ -19,7 +19,7 @@
   },
   {
     "model": "openai/gpt-5.4",
-    "accuracy": 0.53,
+    "accuracy": 0.6,
     "stderr": null,
     "samples": 100,
     "status": "success",
@@ -28,7 +28,7 @@
   },
   {
     "model": "openai/gpt-5.4",
-    "accuracy": 0.87,
+    "accuracy": 0.89,
     "stderr": null,
     "samples": 100,
     "status": "success",

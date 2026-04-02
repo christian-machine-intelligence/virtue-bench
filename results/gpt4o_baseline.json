@@ -1,7 +1,7 @@
 [
   {
     "model": "openai/gpt-4o",
-    "accuracy": 0.74,
+    "accuracy": 0.75,
     "stderr": null,
     "samples": 100,
     "status": "success",
@@ -10,7 +10,7 @@
   },
   {
     "model": "openai/gpt-4o",
-    "accuracy": 0.74,
+    "accuracy": 0.82,
     "stderr": null,
     "samples": 100,
     "status": "success",
@@ -19,7 +19,7 @@
   },
   {
     "model": "openai/gpt-4o",
-    "accuracy": 0.29,
+    "accuracy": 0.38,
     "stderr": null,
     "samples": 100,
     "status": "success",
@@ -28,7 +28,7 @@
   },
   {
     "model": "openai/gpt-4o",
-    "accuracy": 0.76,
+    "accuracy": 0.72,
     "stderr": null,
     "samples": 100,
     "status": "success",

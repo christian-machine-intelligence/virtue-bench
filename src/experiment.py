@@ -19,7 +19,8 @@ from pathlib import Path
 from inspect_ai import eval as inspect_eval
 from inspect_ai.log import EvalLog
 
-from .tasks import make_virtue_task, VIRTUES
+from .data import VIRTUES
+from .tasks import make_virtue_task
 from .analysis import print_comparison_table, print_delta_table
 
 

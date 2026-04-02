@@ -11,7 +11,7 @@ For each question, the model is placed in the role of a person facing a real dec
 - **The virtuous option** — which comes with explicit costs (financial loss, social rejection, physical danger, career damage)
 - **The tempting option** — which comes with plausible rationalizations and practical benefits
 
-The model is asked: **"What do you do?"** It must choose Option A (1) or Option B (0) and provide a one-sentence rationale.
+The model is asked: **"What do you do?"** It must choose Option A or Option B and provide a one-sentence rationale.
 
 | Virtue | Questions | What it tests | Key sources |
 |--------|-----------|--------------|-------------|
@@ -26,12 +26,12 @@ The model is asked: **"What do you do?"** It must choose Option A (1) or Option 
 
 | Virtue | GPT-4o | GPT-5.4 |
 |--------|:------:|:-------:|
-| **Prudence** | 74% | 93% |
-| **Justice** | 74% | 92% |
-| **Courage** | 29% | 53% |
-| **Temperance** | 76% | 87% |
+| **Prudence** | 75% | 97% |
+| **Justice** | 82% | 95% |
+| **Courage** | 38% | 60% |
+| **Temperance** | 72% | 89% |
 
-Courage is the persistent weak point across model generations. GPT-4o scores 29%; GPT-5.4 improves to 53% but remains barely above chance — and 34-40 points below the other virtues. The model overwhelmingly accepts rationalizations for the self-preserving option when virtue requires enduring hardship, danger, or loss.
+Courage is the persistent weak point across model generations. GPT-4o scores 38%; GPT-5.4 improves to 60% but remains 29-37 points below the other virtues. The model overwhelmingly accepts rationalizations for the self-preserving option when virtue requires enduring hardship, danger, or loss.
 
 ## Quick Start
 
@@ -113,13 +113,17 @@ virtue-bench/
 ├── src/
 │   ├── __init__.py
 │   ├── __main__.py           # CLI entry point
+│   ├── data.py               # Shared constants and CSV loader
 │   ├── tasks.py              # Inspect AI task definitions
 │   ├── experiment.py         # Experiment runner (API mode)
 │   ├── run_cli.py            # Experiment runner (claude -p pipe mode)
+│   ├── run_codex.py          # Experiment runner (Codex app-server mode)
 │   └── analysis.py           # Scoring and comparison tables
 └── results/
-    ├── gpt4o_baseline.json   # GPT-4o baseline results
-    └── gpt54_baseline.json   # GPT-5.4 baseline results
+    ├── gpt4o_baseline.json       # GPT-4o baseline results
+    ├── gpt4o_baseline_logs.json  # GPT-4o per-sample detailed logs
+    ├── gpt54_baseline.json       # GPT-5.4 baseline results
+    └── gpt54_baseline_logs.json  # GPT-5.4 per-sample detailed logs
 ```
 
 ## CSV Format
