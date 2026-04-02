@@ -43,6 +43,17 @@ DEFAULT_SHARED_FLIP_COMPARISONS = [
     ("actual", "resist"),
 ]
 DEFAULT_STABLE_FAILURE_CONDITIONS = ["resist"]
+MODEL_DISPLAY_NAMES = {
+    "pi/gpt-5.4": "GPT-5.4",
+    "pi/gpt-5.4-mini": "GPT-5.4-mini",
+    "claude-p/sonnet@low": "Claude Sonnet 4.6",
+    "pi/gemini-3-flash": "Gemini 3 Flash",
+}
+
+
+def display_model_name(model: str) -> str:
+    """Map raw runner model ids to paper-facing display names."""
+    return MODEL_DISPLAY_NAMES.get(model, model)
 
 
 def print_comparison_table(results: list[dict]) -> None:
@@ -51,7 +62,7 @@ def print_comparison_table(results: list[dict]) -> None:
     rows = []
     for r in results:
         rows.append([
-            r.get("model", ""),
+            r.get("model_display", display_model_name(r.get("model", ""))),
             r.get("virtue", ""),
             r.get("condition", ""),
             f"{r['accuracy']:.4f}" if r.get("accuracy") is not None else "N/A",
@@ -77,7 +88,7 @@ def print_delta_table(results: list[dict]) -> None:
             delta = acc_i - acc_v
             sign = "+" if delta >= 0 else ""
             rows.append([
-                vanilla.get("model", ""),
+                vanilla.get("model_display", display_model_name(vanilla.get("model", ""))),
                 vanilla.get("virtue", ""),
                 f"{acc_v:.4f}",
                 f"{acc_i:.4f}",
@@ -189,6 +200,7 @@ def paired_frame_result(
     return {
         "file": path.name,
         "model": from_row.get("model", ""),
+        "model_display": display_model_name(from_row.get("model", "")),
         "virtue": virtue,
         "from_condition": from_condition,
         "to_condition": to_condition,
@@ -225,12 +237,14 @@ def aggregate_paired_results(rows: list[dict]) -> list[dict]:
             "from_condition": row["from_condition"],
             "to_condition": row["to_condition"],
             "models": [],
+            "model_displays": [],
             "improve": 0,
             "regress": 0,
             "same_right": 0,
             "same_wrong": 0,
         })
         bucket["models"].append(row["model"])
+        bucket["model_displays"].append(row["model_display"])
         bucket["improve"] += row["improve"]
         bucket["regress"] += row["regress"]
         bucket["same_right"] += row["same_right"]
@@ -308,6 +322,7 @@ def shared_item_ids_across_files(
         if row is None:
             continue
         used_models.append(row["model"])
+        # Keep raw ids for provenance; caller can map to display names.
         ids = changed_item_ids(results, path, virtue, from_condition, to_condition, mode=mode)
         shared = ids if shared is None else shared & ids
     return (shared or set()), used_models
@@ -380,7 +395,7 @@ def print_paired_frame_table(rows: list[dict]) -> None:
     headers = ["Model", "From", "To", "Improve", "Regress", "Same Right", "Same Wrong", "p"]
     table_rows = [
         [
-            row["model"],
+            row["model_display"],
             row["from_condition"],
             row["to_condition"],
             row["improve"],
@@ -469,6 +484,7 @@ def build_frame_analysis_report(
             "from_condition": from_condition,
             "to_condition": to_condition,
             "models": models,
+            "model_displays": [display_model_name(model) for model in models],
             "count": len(ids),
             "items": summarize_item_details(sample_details_by_id, ids),
         })
@@ -479,6 +495,7 @@ def build_frame_analysis_report(
         report["stable_failures"].append({
             "condition": condition,
             "models": models,
+            "model_displays": [display_model_name(model) for model in models],
             "count": len(ids),
             "items": summarize_item_details(sample_details_by_id, ids),
         })
