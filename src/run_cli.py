@@ -17,7 +17,7 @@ import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .data import load_virtue_csv, parse_answer, BASE_INSTRUCTION, VIRTUES
+from .data import load_virtue_csv, parse_answer, FRAMES, VIRTUES
 from .result_artifacts import write_result_artifacts
 
 
@@ -189,6 +189,7 @@ async def run_experiment(
     virtues: list[str],
     model: str,
     effort: str | None = None,
+    frame: str = "actual",
     injection_text: str | None = None,
     limit: int | None = None,
     seed: int = 42,
@@ -202,22 +203,23 @@ async def run_experiment(
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
+    base_prompt = FRAMES[frame]
     all_results = []
 
     for virtue in virtues:
         print(f"\n{'='*60}")
-        print(f"Model: {model} (claude -p, concurrency={concurrency}) | Virtue: {virtue}")
+        print(f"Model: {model} (claude -p, concurrency={concurrency}) | Virtue: {virtue} | Frame: {frame}")
         print(f"{'='*60}")
 
-        print(f"\n--- Vanilla ---")
+        print(f"\n--- Vanilla ({frame}) ---")
         result_a = await run_virtue(
             virtue,
             model,
             effort,
-            BASE_INSTRUCTION,
+            base_prompt,
             limit,
             seed,
-            "vanilla",
+            frame,
             trace,
             concurrency,
             retries,
@@ -228,8 +230,8 @@ async def run_experiment(
         print(f"  Accuracy: {acc_a}")
 
         if injection_text:
-            injected_prompt = injection_text + "\n\n---\n\n" + BASE_INSTRUCTION
-            print(f"\n--- Injected ---")
+            injected_prompt = injection_text + "\n\n---\n\n" + base_prompt
+            print(f"\n--- Injected ({frame}) ---")
             result_b = await run_virtue(
                 virtue,
                 model,
@@ -237,7 +239,7 @@ async def run_experiment(
                 injected_prompt,
                 limit,
                 seed,
-                "injected",
+                f"{frame}+injected",
                 trace,
                 concurrency,
                 retries,
@@ -289,6 +291,12 @@ def main():
         choices=["low", "medium", "high", "max"],
         default="low",
         help="Reasoning effort for claude -p (default: low)",
+    )
+    parser.add_argument(
+        "--frame",
+        choices=list(FRAMES.keys()),
+        default="actual",
+        help="Prompt frame key (default: actual)",
     )
     parser.add_argument(
         "--inject",
@@ -356,6 +364,7 @@ def main():
 
     print(f"Model: {args.model} (via claude -p)")
     print(f"Effort: {args.effort or 'default'}")
+    print(f"Frame: {args.frame}")
     print(f"Virtues: {virtues}")
     print(f"Limit: {args.limit or 'all'}")
     print(f"Concurrency: {args.concurrency}")
@@ -367,6 +376,7 @@ def main():
         virtues=virtues,
         model=args.model,
         effort=args.effort,
+        frame=args.frame,
         injection_text=injection_text,
         limit=args.limit,
         seed=args.seed,
