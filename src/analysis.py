@@ -15,7 +15,9 @@ except ModuleNotFoundError:
         """Minimal github-table fallback when tabulate is unavailable."""
         str_rows = [[str(cell) for cell in row] for row in rows]
         widths = [
-            max(len(str(header)), *(len(row[i]) for row in str_rows))
+            len(str(header)) if not str_rows else max(
+                len(str(header)), *(len(row[i]) for row in str_rows)
+            )
             for i, header in enumerate(headers)
         ]
 
@@ -46,7 +48,9 @@ DEFAULT_STABLE_FAILURE_CONDITIONS = ["resist"]
 MODEL_DISPLAY_NAMES = {
     "pi/gpt-5.4": "GPT-5.4",
     "pi/gpt-5.4-mini": "GPT-5.4-mini",
+    "claude-p/opus@low": "Claude Opus 4.6",
     "claude-p/sonnet@low": "Claude Sonnet 4.6",
+    "claude-p/haiku@low": "Claude Haiku 4.5",
     "pi/gemini-3-flash": "Gemini 3 Flash",
 }
 
@@ -435,6 +439,9 @@ def print_item_table(title: str, rows: list[dict]) -> None:
     headers = ["ID", "Source", "Prompt"]
     table_rows = [[row["id"], row["source"], row["prompt"]] for row in rows]
     print(f"\n{title}")
+    if not table_rows:
+        print("(none)")
+        return
     print(tabulate(table_rows, headers=headers, tablefmt="github"))
 
 

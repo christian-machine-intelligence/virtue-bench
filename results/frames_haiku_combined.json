@@ -1,0 +1,56 @@
+[
+  {
+    "model": "claude-p/haiku@low",
+    "accuracy": 0.46,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "preserve"
+  },
+  {
+    "model": "claude-p/haiku@low",
+    "accuracy": 0.62,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "actual"
+  },
+  {
+    "model": "claude-p/haiku@low",
+    "accuracy": 0.61,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "bare"
+  },
+  {
+    "model": "claude-p/haiku@low",
+    "accuracy": 0.88,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "resist"
+  },
+  {
+    "model": "claude-p/haiku@low",
+    "accuracy": 0.74,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "character"
+  },
+  {
+    "model": "claude-p/haiku@low",
+    "accuracy": 0.74,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "duty"
+  }
+]
