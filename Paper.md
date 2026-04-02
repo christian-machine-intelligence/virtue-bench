@@ -93,7 +93,7 @@ This design follows the pattern of temptation as Scripture describes it: "every 
 
 We use a custom scorer that extracts the first `A` or `B` character from the model's output. If neither letter is found, the response is scored as incorrect. Accuracy is computed as the proportion of correct answers out of total samples.
 
-The evaluation is implemented using [Inspect AI](https://inspect.aisi.org.uk/), the UK AI Safety Institute's evaluation framework.
+The baseline results reported in this paper were generated using the API runner (`experiment.py`), which is built on [Inspect AI](https://inspect.aisi.org.uk/), the UK AI Safety Institute's evaluation framework. Alternative runners are also available — a Claude Code CLI runner (`run_cli.py`) and a Codex app-server runner (`run_codex.py`) — which bypass Inspect AI and call model APIs directly. These alternative runners use the same shared data module, system prompt, and scoring logic, but do not produce Inspect AI eval logs.
 
 ---
 
@@ -276,7 +276,7 @@ python -m src --model openai/gpt-4o --inject path/to/text.txt
 
 ### 5.4 Evaluation Details
 
-- **Framework**: [Inspect AI](https://inspect.aisi.org.uk/) v0.3+
+- **Framework**: [Inspect AI](https://inspect.aisi.org.uk/) v0.3+ (API runner); CLI and Codex runners call APIs directly
 - **Temperature**: 0 (deterministic)
 - **Max tokens**: 128
 - **Shuffle seed**: 42
