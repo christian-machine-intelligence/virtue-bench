@@ -31,20 +31,68 @@ MODELS = [
 RESULTS_DIR = Path(__file__).parent.parent / "results"
 
 
-def extract_score(log: EvalLog) -> dict:
-    """Pull accuracy and metadata from an EvalLog."""
+def extract_score(log: EvalLog, detailed: bool = False) -> dict:
+    """Pull accuracy and metadata from an EvalLog.
+
+    If detailed=True, also extract per-sample model responses and rationales.
+    """
     results = log.results
     metrics = {}
     if results and results.scores:
         for score in results.scores:
             metrics.update({k: v.value for k, v in score.metrics.items()})
-    return {
+    result = {
         "model": str(log.eval.model),
         "accuracy": metrics.get("accuracy", None),
         "stderr": metrics.get("stderr", None),
         "samples": log.eval.dataset.samples if log.eval.dataset else None,
         "status": str(log.status),
     }
+
+    if detailed and log.samples:
+        sample_details = []
+        for sample in log.samples:
+            # Extract the prompt text
+            prompt = ""
+            if sample.input:
+                if isinstance(sample.input, str):
+                    prompt = sample.input
+                elif isinstance(sample.input, list):
+                    prompt = " ".join(
+                        m.text for m in sample.input
+                        if hasattr(m, "text") and m.text
+                    )
+
+            # Extract model response
+            model_response = ""
+            if sample.output and sample.output.completion:
+                model_response = sample.output.completion.strip()
+
+            # Extract score details
+            answer = None
+            correct = None
+            explanation = None
+            if sample.scores:
+                for scorer_name, score_val in sample.scores.items():
+                    answer = score_val.answer
+                    correct = score_val.value == "C"
+                    explanation = score_val.explanation
+                    break
+
+            detail = {
+                "id": sample.id,
+                "prompt": prompt,
+                "target": sample.target,
+                "model_response": model_response,
+                "model_answer": answer,
+                "correct": correct,
+                "explanation": explanation,
+                "metadata": sample.metadata if sample.metadata else {},
+            }
+            sample_details.append(detail)
+        result["sample_details"] = sample_details
+
+    return result
 
 
 def run_condition(
@@ -55,6 +103,7 @@ def run_condition(
     seed: int,
     log_dir: str,
     condition_label: str,
+    detailed: bool = False,
 ) -> dict:
     """Run a single experimental condition and return the result dict."""
     task = make_virtue_task(
@@ -71,7 +120,7 @@ def run_condition(
     )
 
     log = logs[0]
-    result = extract_score(log)
+    result = extract_score(log, detailed=detailed)
     result["virtue"] = virtue
     result["condition"] = condition_label
     return result
@@ -83,11 +132,14 @@ def run_experiment(
     injection_text: str | None = None,
     limit: int | None = None,
     seed: int = 42,
+    detailed: bool = False,
+    output_name: str | None = None,
 ) -> list[dict]:
     """Run full experiment across virtues and models.
 
     If injection_text is provided, runs A/B: vanilla vs injected.
     Otherwise, runs vanilla only.
+    If detailed is True, includes per-sample model responses and rationales.
     """
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     log_dir = str(RESULTS_DIR / "logs" / timestamp)
@@ -106,6 +158,7 @@ def run_experiment(
             print(f"\n--- Vanilla ---")
             result_a = run_condition(
                 virtue, model, None, limit, seed, log_dir, "vanilla",
+                detailed=detailed,
             )
             all_results.append(result_a)
             print(f"  Accuracy: {result_a['accuracy']}")
@@ -115,6 +168,7 @@ def run_experiment(
                 print(f"\n--- Injected ---")
                 result_b = run_condition(
                     virtue, model, injection_text, limit, seed, log_dir, "injected",
+                    detailed=detailed,
                 )
                 all_results.append(result_b)
                 print(f"  Accuracy: {result_b['accuracy']}")
@@ -125,7 +179,10 @@ def run_experiment(
                     print(f"\n  Delta: {sign}{delta:.4f}")
 
     # Save results
-    results_file = RESULTS_DIR / f"results_{timestamp}.json"
+    filename = output_name or f"results_{timestamp}"
+    if not filename.endswith(".json"):
+        filename += ".json"
+    results_file = RESULTS_DIR / filename
     with open(results_file, "w") as f:
         json.dump(all_results, f, indent=2, default=str)
     print(f"\nResults saved to: {results_file}")
@@ -172,6 +229,17 @@ def main():
         action="store_true",
         help="Quick smoke test: 10 samples per virtue",
     )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output filename for results JSON (saved in results/)",
+    )
+    parser.add_argument(
+        "--detailed",
+        action="store_true",
+        help="Include per-sample model responses and rationales in output",
+    )
 
     args = parser.parse_args()
 
@@ -195,6 +263,8 @@ def main():
         injection_text=injection_text,
         limit=args.limit,
         seed=args.seed,
+        detailed=args.detailed,
+        output_name=args.output,
     )
 
     print_comparison_table(results)
