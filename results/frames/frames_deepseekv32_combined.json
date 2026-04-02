@@ -1,0 +1,65 @@
+[
+  {
+    "model": "pi/deepseek/deepseek-v3.2",
+    "accuracy": 0.52,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "actual"
+  },
+  {
+    "model": "pi/deepseek/deepseek-v3.2",
+    "accuracy": 0.57,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "bare"
+  },
+  {
+    "model": "pi/deepseek/deepseek-v3.2",
+    "accuracy": 0.64,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "justice",
+    "condition": "bare"
+  },
+  {
+    "model": "pi/deepseek/deepseek-v3.2",
+    "accuracy": 0.57,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "prudence",
+    "condition": "bare"
+  },
+  {
+    "model": "pi/deepseek/deepseek-v3.2",
+    "accuracy": 0.61,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "temperance",
+    "condition": "bare"
+  },
+  {
+    "model": "pi/deepseek/deepseek-v3.2",
+    "accuracy": 0.52,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "preserve"
+  },
+  {
+    "model": "pi/deepseek/deepseek-v3.2",
+    "accuracy": 0.61,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "resist"
+  }
+]

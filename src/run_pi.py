@@ -252,6 +252,100 @@ async def run_experiment(
     return summary_results
 
 
+async def patch_run(
+    logs_file: str,
+    provider: str,
+    thinking: str,
+    concurrency: int,
+    retries: int,
+    timeout: int,
+) -> None:
+    """Re-run only infra-error items from a previous logs file and merge results."""
+    import json as _json
+
+    logs_path = Path(logs_file)
+    if not logs_path.exists():
+        print(f"Logs file not found: {logs_path}")
+        return
+
+    with open(logs_path) as f:
+        all_entries = _json.load(f)
+
+    results_path = logs_path.with_name(logs_path.name.replace("_logs.json", ".json"))
+
+    for entry in all_entries:
+        details = entry.get("sample_details", [])
+        failed_ids = [d for d in details if d.get("correct") is None]
+        if not failed_ids:
+            continue
+
+        model = entry["model"].split("/", 1)[1].split(":")[0]
+        condition = entry["condition"]
+        virtue = entry["virtue"]
+        frame_prompt = FRAMES.get(condition, FRAMES["actual"])
+        seed = 42
+
+        samples = load_virtue_csv(virtue, seed=seed)
+        sem = asyncio.Semaphore(concurrency)
+        patched = 0
+
+        print(f"\nPatching {len(failed_ids)} failed items for {virtue}/{condition}")
+
+        for d in failed_ids:
+            idx = d["id"] - 1
+            sample = samples[idx]
+
+            async with sem:
+                outcome = await query_pi(
+                    sample.input,
+                    frame_prompt,
+                    model,
+                    provider=provider,
+                    thinking=thinking,
+                    retries=retries,
+                    timeout=timeout,
+                )
+
+            response = outcome["response"]
+            answer = parse_answer(response) if outcome["infra_error"] is None else None
+            is_correct = answer == sample.target if outcome["infra_error"] is None else None
+
+            d["model_response"] = response
+            d["model_answer"] = answer
+            d["correct"] = is_correct
+            d["explanation"] = response
+
+            if outcome["infra_error"] is not None:
+                status = f"infra:{outcome['infra_error']}"
+            else:
+                status = "correct" if is_correct else "incorrect"
+                patched += 1
+            print(f"  [{d['id']}] {status}", flush=True)
+
+        # Recompute accuracy
+        scored = [d for d in details if d["correct"] is not None]
+        correct = sum(1 for d in scored if d["correct"])
+        still_failed = [d for d in details if d["correct"] is None]
+        total = len(details)
+
+        entry["accuracy"] = correct / total if not still_failed and total > 0 else None
+        entry["status"] = "success" if not still_failed else "partial"
+        acc = f"{entry['accuracy']:.4f}" if entry["accuracy"] is not None else "N/A"
+        print(f"  Patched {patched}/{len(failed_ids)} | Accuracy: {acc}")
+
+    with open(logs_path, "w") as f:
+        _json.dump(all_entries, f, indent=2)
+
+    # Update summary file too
+    if results_path.exists():
+        summary = [{k: v for k, v in e.items() if k != "sample_details"} for e in all_entries]
+        with open(results_path, "w") as f:
+            _json.dump(summary, f, indent=2)
+        print(f"\nUpdated: {logs_path.name} and {results_path.name}")
+    else:
+        print(f"\nUpdated: {logs_path.name}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run VirtueBench using pi print mode (pi -p)"
@@ -336,6 +430,12 @@ def main():
         default=None,
         help="Output filename for results JSON (saved in results/)",
     )
+    parser.add_argument(
+        "--patch",
+        type=str,
+        default=None,
+        help="Path to a *_logs.json file to patch: re-runs only infra-error items",
+    )
 
     args = parser.parse_args()
 
@@ -343,6 +443,17 @@ def main():
         args.limit = 10
 
     virtues = VIRTUES if args.subset == "all" else [args.subset]
+
+    if args.patch:
+        asyncio.run(patch_run(
+            logs_file=args.patch,
+            provider=args.provider,
+            thinking=args.thinking,
+            concurrency=args.concurrency,
+            retries=args.retries,
+            timeout=args.timeout,
+        ))
+        return
 
     injection_text = None
     if args.inject:
