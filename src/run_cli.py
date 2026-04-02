@@ -29,6 +29,7 @@ async def query_claude(
     prompt: str,
     system_prompt: str,
     model: str,
+    effort: str | None = None,
     retries: int = 2,
     timeout: int = 120,
 ) -> dict:
@@ -38,13 +39,20 @@ async def query_claude(
     for attempt in range(1, retries + 2):
         proc = None
         try:
-            proc = await asyncio.create_subprocess_exec(
+            cmd = [
                 "claude", "-p",
                 "--model", model,
                 "--system-prompt", system_prompt,
                 "--no-session-persistence",
-                "--setting-sources", "user",
+                "--setting-sources", "",
                 "--tools", "",
+                "--disable-slash-commands",
+                "--strict-mcp-config",
+            ]
+            if effort:
+                cmd.extend(["--effort", effort])
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -101,6 +109,7 @@ async def query_claude(
 async def run_virtue(
     virtue: str,
     model: str,
+    effort: str | None,
     system_prompt: str,
     limit: int | None,
     seed: int,
@@ -122,6 +131,7 @@ async def run_virtue(
                 sample.input,
                 system_prompt,
                 model,
+                effort=effort,
                 retries=retries,
                 timeout=timeout,
             )
@@ -162,7 +172,7 @@ async def run_virtue(
 
     accuracy = correct / total if not infra_results and total > 0 else None
     result = {
-        "model": f"claude-p/{model}",
+        "model": f"claude-p/{model}" + (f"@{effort}" if effort else ""),
         "accuracy": accuracy,
         "stderr": None,
         "samples": total,
@@ -178,6 +188,7 @@ async def run_virtue(
 async def run_experiment(
     virtues: list[str],
     model: str,
+    effort: str | None = None,
     injection_text: str | None = None,
     limit: int | None = None,
     seed: int = 42,
@@ -202,6 +213,7 @@ async def run_experiment(
         result_a = await run_virtue(
             virtue,
             model,
+            effort,
             BASE_INSTRUCTION,
             limit,
             seed,
@@ -221,6 +233,7 @@ async def run_experiment(
             result_b = await run_virtue(
                 virtue,
                 model,
+                effort,
                 injected_prompt,
                 limit,
                 seed,
@@ -270,6 +283,12 @@ def main():
         "--model",
         default="sonnet",
         help="Claude model name for claude -p (default: sonnet)",
+    )
+    parser.add_argument(
+        "--effort",
+        choices=["low", "medium", "high", "max"],
+        default="low",
+        help="Reasoning effort for claude -p (default: low)",
     )
     parser.add_argument(
         "--inject",
@@ -336,6 +355,7 @@ def main():
         injection_text = Path(args.inject).read_text(encoding="utf-8")
 
     print(f"Model: {args.model} (via claude -p)")
+    print(f"Effort: {args.effort or 'default'}")
     print(f"Virtues: {virtues}")
     print(f"Limit: {args.limit or 'all'}")
     print(f"Concurrency: {args.concurrency}")
@@ -346,6 +366,7 @@ def main():
     results = asyncio.run(run_experiment(
         virtues=virtues,
         model=args.model,
+        effort=args.effort,
         injection_text=injection_text,
         limit=args.limit,
         seed=args.seed,
