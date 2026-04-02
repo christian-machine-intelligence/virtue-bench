@@ -15,12 +15,11 @@ Usage:
 import argparse
 import json
 import subprocess
-import sys
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .data import load_virtue_csv, BASE_INSTRUCTION, VIRTUES
+from .data import load_virtue_csv, parse_answer, BASE_INSTRUCTION, VIRTUES
 
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
@@ -39,6 +38,7 @@ class CodexAppServer:
         self._notifications = []
         self._lock = threading.Lock()
         self._events = {}
+        self._turn_done = threading.Event()
 
     def _next_request_id(self) -> int:
         self._next_id += 1
@@ -82,6 +82,8 @@ class CodexAppServer:
             else:
                 with self._lock:
                     self._notifications.append(msg)
+                if msg.get("method") in ("turn/completed", "item/completed"):
+                    self._turn_done.set()
 
     def start(self):
         self.proc = subprocess.Popen(
@@ -114,14 +116,29 @@ class CodexAppServer:
             "approvalPolicy": "never",
             "sandbox": "read-only",
             "ephemeral": True,
+            "cwd": "/tmp",
+        })
+        if "error" in resp:
+            raise RuntimeError(f"thread/start failed: {resp['error']}")
+        self.thread_id = resp["result"]["thread"]["id"]
+
+    def new_thread(self):
+        """Start a fresh thread (resets conversation history)."""
+        resp = self._request("thread/start", {
+            "model": self.model,
+            "approvalPolicy": "never",
+            "sandbox": "read-only",
+            "ephemeral": True,
+            "cwd": "/tmp",
         })
         if "error" in resp:
             raise RuntimeError(f"thread/start failed: {resp['error']}")
         self.thread_id = resp["result"]["thread"]["id"]
 
     def query(self, prompt: str, retries: int = 1) -> str:
-        """Send a turn and wait for the agent message response."""
+        """Start a fresh thread and send a turn (stateless per query)."""
         for attempt in range(1 + retries):
+            self.new_thread()
             response = self._query_once(prompt)
             if response or attempt == retries:
                 return response
@@ -130,6 +147,7 @@ class CodexAppServer:
 
     def _query_once(self, prompt: str) -> str:
         """Send a single turn and wait for the agent message response."""
+        self._turn_done.clear()
         with self._lock:
             self._notifications.clear()
 
@@ -140,21 +158,21 @@ class CodexAppServer:
         if "error" in resp:
             return f"[error] {resp['error'].get('message', '')}"
 
-        # Wait for turn/completed notification
-        import time
-        for _ in range(600):  # up to 60s
-            time.sleep(0.1)
+        while self._turn_done.wait(timeout=60):
+            self._turn_done.clear()
             with self._lock:
                 for notif in self._notifications:
                     if notif.get("method") == "turn/completed":
                         turn = notif.get("params", {}).get("turn", {})
                         for item in turn.get("items", []):
                             if item.get("type") == "agentMessage":
+                                self._notifications.clear()
                                 return item.get("text", "").strip()
                 for notif in self._notifications:
                     if notif.get("method") == "item/completed":
                         item = notif.get("params", {}).get("item", {})
                         if item.get("type") == "agentMessage":
+                            self._notifications.clear()
                             return item.get("text", "").strip()
         return ""
 
@@ -162,21 +180,6 @@ class CodexAppServer:
         if self.proc:
             self.proc.terminate()
             self.proc.wait(timeout=5)
-
-
-def parse_response(response: str) -> tuple[str | None, str]:
-    """Extract the leading A/B answer and the rationale from a response."""
-    answer = None
-    for ch in response:
-        if ch in ("A", "B"):
-            answer = ch
-            break
-    rationale = response
-    for sep in (" — ", " - ", "—"):
-        if sep in response:
-            rationale = response.split(sep, 1)[1].strip()
-            break
-    return answer, rationale
 
 
 def run_virtue(
@@ -198,7 +201,7 @@ def run_virtue(
         print(f"  [{i}/{total}] ", end="", flush=True)
         full_prompt = f"{system_prompt}\n\n{sample.input}"
         response = server.query(full_prompt)
-        answer, rationale = parse_response(response)
+        answer = parse_answer(response)
         is_correct = answer == sample.target
 
         if is_correct:
@@ -346,13 +349,6 @@ def main():
     print(f"Virtues: {virtues}")
     print(f"Limit: {args.limit or 'all'}")
     print(f"Injection: {'yes' if injection_text else 'no'}")
-
-    try:
-        subprocess.run(["codex", "--version"], capture_output=True, check=True)
-    except FileNotFoundError:
-        print("Error: 'codex' CLI not found. Install Codex first:", file=sys.stderr)
-        print("  https://github.com/openai/codex", file=sys.stderr)
-        sys.exit(1)
 
     results = run_experiment(
         virtues=virtues,
