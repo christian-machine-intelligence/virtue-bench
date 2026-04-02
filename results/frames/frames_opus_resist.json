@@ -1,0 +1,11 @@
+[
+  {
+    "model": "claude-p/opus@low",
+    "accuracy": 0.91,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "resist"
+  }
+]
