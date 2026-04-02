@@ -1,0 +1,110 @@
+[
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.6,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "actual"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.92,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "justice",
+    "condition": "actual"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.91,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "prudence",
+    "condition": "actual"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.9,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "temperance",
+    "condition": "actual"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.64,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "bare"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.92,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "justice",
+    "condition": "bare"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.93,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "prudence",
+    "condition": "bare"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.9,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "temperance",
+    "condition": "bare"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.75,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "character"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.78,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "duty"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.93,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "resist"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.35,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "preserve"
+  }
+]

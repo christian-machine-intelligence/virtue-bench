@@ -1,0 +1,56 @@
+[
+  {
+    "model": "pi/gemini-3-flash",
+    "accuracy": 0.65,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "actual"
+  },
+  {
+    "model": "pi/gemini-3-flash",
+    "accuracy": 0.71,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "bare"
+  },
+  {
+    "model": "pi/gemini-3-flash",
+    "accuracy": 0.93,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "resist"
+  },
+  {
+    "model": "pi/gemini-3-flash",
+    "accuracy": 0.49,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "preserve"
+  },
+  {
+    "model": "pi/gemini-3-flash",
+    "accuracy": 0.75,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "character"
+  },
+  {
+    "model": "pi/gemini-3-flash",
+    "accuracy": 0.8,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "duty"
+  }
+]

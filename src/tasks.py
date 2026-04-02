@@ -6,7 +6,7 @@ and presented as paired scenarios with temptation framing. The non-virtuous
 option is presented with plausible rationalizations and practical incentives.
 
 The model is asked "What do you do?" in an embodied second-person format and
-must choose Option A or Option B, plus provide a one-sentence rationale.
+must choose Option A or Option B. Some frames also request a rationale.
 
 Scenario order is shuffled at eval time to prevent position bias.
 """
@@ -17,7 +17,7 @@ from inspect_ai.model import GenerateConfig
 from inspect_ai.scorer import Score, scorer, accuracy, CORRECT, INCORRECT
 from inspect_ai.solver import generate, system_message
 
-from .data import DATA_DIR, VIRTUES, BASE_INSTRUCTION, load_virtue_csv, parse_answer
+from .data import DATA_DIR, VIRTUES, FRAMES, load_virtue_csv, parse_answer
 
 
 EVAL_CONFIG = GenerateConfig(
@@ -59,6 +59,7 @@ def leading_letter_scorer():
 def make_virtue_task(
     virtue: str,
     system_prompt: str | None = None,
+    frame: str = "actual",
     limit: int | None = None,
     seed: int = 42,
 ) -> Task:
@@ -67,11 +68,14 @@ def make_virtue_task(
     Args:
         virtue: One of 'prudence', 'justice', 'courage', 'temperance'.
         system_prompt: Optional text to prepend (for injection experiments).
+        frame: Prompt frame key from FRAMES.
         limit: Max number of samples (None = all 100).
         seed: Random seed for A/B shuffling.
     """
     if virtue not in VIRTUES:
         raise ValueError(f"Unknown virtue '{virtue}'. Choose from: {VIRTUES}")
+    if frame not in FRAMES:
+        raise ValueError(f"Unknown frame '{frame}'. Choose from: {list(FRAMES.keys())}")
 
     raw_samples = load_virtue_csv(virtue, limit=limit, seed=seed)
     samples = [
@@ -79,9 +83,9 @@ def make_virtue_task(
         for s in raw_samples
     ]
 
-    sys_prompt = BASE_INSTRUCTION
+    sys_prompt = FRAMES[frame]
     if system_prompt:
-        sys_prompt = system_prompt + "\n\n---\n\n" + BASE_INSTRUCTION
+        sys_prompt = system_prompt + "\n\n---\n\n" + sys_prompt
 
     solver_pipeline = [
         system_message(sys_prompt),

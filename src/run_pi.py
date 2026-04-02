@@ -5,11 +5,11 @@ Uses the openai-codex provider (ChatGPT Pro subscription) with all
 tools, extensions, skills, and sessions disabled for clean eval.
 
 Usage:
-    python -m src.run_codex                          # full benchmark
-    python -m src.run_codex --quick                   # smoke test (10 per virtue)
-    python -m src.run_codex --subset courage          # single virtue
-    python -m src.run_codex --model gpt-5.4           # specific model
-    python -m src.run_codex --detailed                # write per-sample debug logs
+    python -m src.run_pi                          # full benchmark
+    python -m src.run_pi --quick                   # smoke test (10 per virtue)
+    python -m src.run_pi --subset courage          # single virtue
+    python -m src.run_pi --model gpt-5.4           # specific model
+    python -m src.run_pi --detailed                # write per-sample debug logs
 """
 
 import argparse
@@ -17,7 +17,7 @@ import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .data import load_virtue_csv, parse_answer, BASE_INSTRUCTION, VIRTUES
+from .data import load_virtue_csv, parse_answer, FRAMES, VIRTUES
 from .result_artifacts import write_result_artifacts
 
 
@@ -190,6 +190,7 @@ async def run_experiment(
     model: str,
     provider: str = "openai-codex",
     thinking: str = "off",
+    frame: str = "actual",
     injection_text: str | None = None,
     limit: int | None = None,
     seed: int = 42,
@@ -203,28 +204,29 @@ async def run_experiment(
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
+    base_prompt = FRAMES[frame]
     all_results = []
 
     for virtue in virtues:
         print(f"\n{'='*60}")
-        print(f"Model: {model} (pi -p, concurrency={concurrency}) | Virtue: {virtue}")
+        print(f"Model: {model} (pi -p, concurrency={concurrency}) | Virtue: {virtue} | Frame: {frame}")
         print(f"{'='*60}")
 
-        print(f"\n--- Vanilla ---")
+        print(f"\n--- Vanilla ({frame}) ---")
         result_a = await run_virtue(
-            virtue, model, provider, thinking, BASE_INSTRUCTION,
-            limit, seed, "vanilla", trace, concurrency, retries, timeout,
+            virtue, model, provider, thinking, base_prompt,
+            limit, seed, frame, trace, concurrency, retries, timeout,
         )
         all_results.append(result_a)
         acc_a = f"{result_a['accuracy']:.4f}" if result_a["accuracy"] is not None else "N/A"
         print(f"  Accuracy: {acc_a}")
 
         if injection_text:
-            injected_prompt = injection_text + "\n\n---\n\n" + BASE_INSTRUCTION
-            print(f"\n--- Injected ---")
+            injected_prompt = injection_text + "\n\n---\n\n" + base_prompt
+            print(f"\n--- Injected ({frame}) ---")
             result_b = await run_virtue(
                 virtue, model, provider, thinking, injected_prompt,
-                limit, seed, "injected", trace, concurrency, retries, timeout,
+                limit, seed, f"{frame}+injected", trace, concurrency, retries, timeout,
             )
             all_results.append(result_b)
             acc_b = f"{result_b['accuracy']:.4f}" if result_b["accuracy"] is not None else "N/A"
@@ -275,6 +277,12 @@ def main():
         choices=["off", "minimal", "low", "medium", "high", "xhigh"],
         default="off",
         help="Thinking level for pi (default: off)",
+    )
+    parser.add_argument(
+        "--frame",
+        choices=list(FRAMES.keys()),
+        default="actual",
+        help="Prompt frame key (default: actual)",
     )
     parser.add_argument(
         "--inject",
@@ -343,6 +351,7 @@ def main():
     print(f"Provider: {args.provider}")
     print(f"Model: {args.model} (via pi -p)")
     print(f"Thinking: {args.thinking}")
+    print(f"Frame: {args.frame}")
     print(f"Virtues: {virtues}")
     print(f"Limit: {args.limit or 'all'}")
     print(f"Concurrency: {args.concurrency}")
@@ -355,6 +364,7 @@ def main():
         model=args.model,
         provider=args.provider,
         thinking=args.thinking,
+        frame=args.frame,
         injection_text=injection_text,
         limit=args.limit,
         seed=args.seed,
