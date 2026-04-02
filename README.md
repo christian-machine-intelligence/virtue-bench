@@ -24,15 +24,14 @@ The model is asked: **"What do you do?"** It must choose Option A or Option B an
 
 ![Results](results.png)
 
-| Virtue | GPT-4o | GPT-5.4-Mini | GPT-5.1 | GPT-5.2 | GPT-5.4 |
-|--------|:------:|:------------:|:-------:|:-------:|:-------:|
-| **Prudence** | 75% | 91% | 96% | 98% | 97% |
-| **Justice** | 82% | 94% | 98% | 93% | 94% |
-| **Courage** | 38% | 60% | 63% | 54% | 59% |
-| **Temperance** | 72% | 92% | 90% | 89% | 89% |
-| **Average** | **67%** | **84%** | **87%** | **84%** | **85%** |
+| Virtue | GPT-4o | GPT-5.4 |
+|--------|:------:|:-------:|
+| **Prudence** | 75% | 97% |
+| **Justice** | 82% | 95% |
+| **Courage** | 38% | 60% |
+| **Temperance** | 72% | 89% |
 
-Courage is the persistent weak point — and it peaked at GPT-5.1 (63%) before regressing. Newer models are more prudent but not more courageous. 23 courage scenarios are universally failed across all GPT models: the model overwhelmingly accepts rationalizations for the self-preserving option when virtue requires enduring hardship, danger, or loss.
+Courage is the persistent weak point across model generations. GPT-4o scores 38%; GPT-5.4 improves to 60% but remains 29-37 points below the other virtues. The model overwhelmingly accepts rationalizations for the self-preserving option when virtue requires enduring hardship, danger, or loss.
 
 ## Quick Start
 
@@ -72,23 +71,41 @@ python -m src --model openai/gpt-4o
 python -m src --inject path/to/text.txt
 ```
 
-### Run without API keys (subscription only)
+### Run with Claude Max (no API key)
 
-Both runners work with subscriptions instead of API keys, run concurrently (~10 min for 400 samples), and require no external dependencies beyond the CLI tools.
+If you have a [Claude Max](https://claude.ai) subscription and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed, you can run VirtueBench without an API key using pipe mode (`claude -p`). This sends each prompt through the Claude Code CLI instead of the API.
 
 ```bash
-# Claude models (requires Claude Max + Claude Code)
-python -m src.run_cli                          # default: sonnet
-python -m src.run_cli --model opus --quick     # smoke test
+# Full benchmark — all four virtues
+python -m src.run_cli
 
-# OpenAI models (requires ChatGPT Pro + pi)
-python -m src.run_codex                        # default: gpt-5.4
-python -m src.run_codex --model gpt-5.4-mini   # smaller model
+# Quick smoke test — 10 samples per virtue
+python -m src.run_cli --quick
+
+# Single virtue
+python -m src.run_cli --subset courage
+
+# Specific model (default: sonnet)
+python -m src.run_cli --model opus
+
+# Name the output pair
+python -m src.run_cli --output claude_sonnet_baseline
+
+# A/B experiment with text injection
+python -m src.run_cli --inject path/to/text.txt
 ```
 
-Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code) for Claude models. For OpenAI, install [pi](https://github.com/badlogic/pi-mono) (`npm install -g @mariozechner/pi-coding-agent`) and login with `/login` → `openai-codex`.
+### Run OpenAI/Gemini models with ChatGPT Pro (no API key)
 
-**Eval isolation:** Both runners disable all tools, extensions, skills, MCP servers, and project config to minimize prompt overhead and prevent context bleed. No `temperature=0` control — results may vary slightly between runs. See `--help` for `--effort`/`--thinking`, `--concurrency`, `--detailed`, and other flags.
+If you have a [ChatGPT Pro](https://chatgpt.com) subscription, install [pi](https://github.com/badlogic/pi-mono) (`npm install -g @mariozechner/pi-coding-agent`), login with `/login` → `openai-codex`, then:
+
+```bash
+python -m src.run_pi                              # default: gpt-5.4
+python -m src.run_pi --model gpt-5.4-mini         # smaller model
+python -m src.run_pi --provider google-antigravity --model gemini-3-flash
+```
+
+**Eval isolation:** Both CLI runners disable all tools, extensions, skills, MCP servers, and project config. No `temperature=0` control — results may vary slightly between runs. See `--help` for `--effort`/`--thinking`, `--concurrency`, `--detailed`, and other flags.
 
 ## Project Structure
 
@@ -109,7 +126,7 @@ virtue-bench/
 │   ├── tasks.py              # Inspect AI task definitions
 │   ├── experiment.py         # Experiment runner (API mode)
 │   ├── run_cli.py            # Experiment runner (claude -p pipe mode)
-│   ├── run_codex.py          # Experiment runner (OpenAI via pi -p)
+│   ├── run_pi.py             # Experiment runner (OpenAI/Gemini via pi -p)
 │   └── analysis.py           # Scoring and comparison tables
 └── results/
     ├── gpt4o_baseline.json       # GPT-4o baseline results

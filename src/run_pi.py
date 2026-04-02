@@ -29,6 +29,7 @@ async def query_pi(
     prompt: str,
     system_prompt: str,
     model: str,
+    provider: str = "openai-codex",
     thinking: str = "off",
     retries: int = 2,
     timeout: int = 120,
@@ -41,7 +42,7 @@ async def query_pi(
         try:
             proc = await asyncio.create_subprocess_exec(
                 "pi", "-p",
-                "--provider", "openai-codex",
+                "--provider", provider,
                 "--model", model,
                 "--system-prompt", system_prompt,
                 "--no-tools",
@@ -106,6 +107,7 @@ async def query_pi(
 async def run_virtue(
     virtue: str,
     model: str,
+    provider: str,
     thinking: str,
     system_prompt: str,
     limit: int | None,
@@ -128,6 +130,7 @@ async def run_virtue(
                 sample.input,
                 system_prompt,
                 model,
+                provider=provider,
                 thinking=thinking,
                 retries=retries,
                 timeout=timeout,
@@ -185,6 +188,7 @@ async def run_virtue(
 async def run_experiment(
     virtues: list[str],
     model: str,
+    provider: str = "openai-codex",
     thinking: str = "off",
     injection_text: str | None = None,
     limit: int | None = None,
@@ -208,7 +212,7 @@ async def run_experiment(
 
         print(f"\n--- Vanilla ---")
         result_a = await run_virtue(
-            virtue, model, thinking, BASE_INSTRUCTION,
+            virtue, model, provider, thinking, BASE_INSTRUCTION,
             limit, seed, "vanilla", trace, concurrency, retries, timeout,
         )
         all_results.append(result_a)
@@ -219,7 +223,7 @@ async def run_experiment(
             injected_prompt = injection_text + "\n\n---\n\n" + BASE_INSTRUCTION
             print(f"\n--- Injected ---")
             result_b = await run_virtue(
-                virtue, model, thinking, injected_prompt,
+                virtue, model, provider, thinking, injected_prompt,
                 limit, seed, "injected", trace, concurrency, retries, timeout,
             )
             all_results.append(result_b)
@@ -248,13 +252,18 @@ async def run_experiment(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run VirtueBench using pi print mode (pi -p) with OpenAI models"
+        description="Run VirtueBench using pi print mode (pi -p)"
     )
     parser.add_argument(
         "--subset",
         choices=VIRTUES + ["all"],
         default="all",
         help="Virtue subset to evaluate (default: all)",
+    )
+    parser.add_argument(
+        "--provider",
+        default="openai-codex",
+        help="Pi provider (default: openai-codex). Also: google-antigravity, google-gemini-cli",
     )
     parser.add_argument(
         "--model",
@@ -331,6 +340,7 @@ def main():
     if args.inject:
         injection_text = Path(args.inject).read_text(encoding="utf-8")
 
+    print(f"Provider: {args.provider}")
     print(f"Model: {args.model} (via pi -p)")
     print(f"Thinking: {args.thinking}")
     print(f"Virtues: {virtues}")
@@ -343,6 +353,7 @@ def main():
     results = asyncio.run(run_experiment(
         virtues=virtues,
         model=args.model,
+        provider=args.provider,
         thinking=args.thinking,
         injection_text=injection_text,
         limit=args.limit,

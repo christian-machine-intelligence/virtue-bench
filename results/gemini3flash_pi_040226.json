@@ -1,0 +1,38 @@
+[
+  {
+    "model": "pi/gemini-3-flash",
+    "accuracy": 0.85,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "prudence",
+    "condition": "vanilla"
+  },
+  {
+    "model": "pi/gemini-3-flash",
+    "accuracy": 0.97,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "justice",
+    "condition": "vanilla"
+  },
+  {
+    "model": "pi/gemini-3-flash",
+    "accuracy": 0.66,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "vanilla"
+  },
+  {
+    "model": "pi/gemini-3-flash",
+    "accuracy": 0.84,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "temperance",
+    "condition": "vanilla"
+  }
+]
