@@ -88,6 +88,9 @@ python -m src.run_cli --subset courage
 # Specific model (default: sonnet)
 python -m src.run_cli --model opus
 
+# Name the output pair
+python -m src.run_cli --output claude_sonnet_baseline
+
 # A/B experiment with text injection
 python -m src.run_cli --inject path/to/text.txt
 ```
@@ -96,7 +99,8 @@ python -m src.run_cli --inject path/to/text.txt
 - No API key or credits needed — uses your Claude Max subscription
 - Slower — each sample is a separate CLI call (expect ~1-2 min per virtue on `--quick`)
 - No `temperature=0` control — results may vary slightly between runs
-- Results are saved in the same JSON format under `results/`
+- Retries and infra failures are tracked separately from scored answers
+- Summary results are saved to `results/*.json`; per-sample debug detail goes to `*_logs.json`
 
 ## Project Structure
 

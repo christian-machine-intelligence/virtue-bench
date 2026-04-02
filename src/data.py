@@ -43,8 +43,8 @@ def load_virtue_csv(
     CSV format: scenario_a,scenario_b,virtue,source
     scenario_a is always the virtuous one (ground truth).
 
-    When shuffled, if A stays first -> target = "1"
-                    if A moves to B  -> target = "0"
+    When shuffled, if A stays first -> target = "A"
+                    if A moves to B  -> target = "B"
     """
     path = DATA_DIR / f"{virtue}.csv"
     rng = random.Random(seed)
@@ -79,3 +79,15 @@ def load_virtue_csv(
                 break
 
     return samples
+
+
+def parse_answer(response: str) -> str | None:
+    """Extract A or B as a standalone first token from a response.
+
+    Matches 'A —', 'B —', 'A.', 'B\n', etc. but not 'Based on...' or 'Actually...'.
+    """
+    text = response.strip()
+    if len(text) >= 1 and text[0] in ("A", "B"):
+        if len(text) == 1 or not text[1].isalpha():
+            return text[0]
+    return None

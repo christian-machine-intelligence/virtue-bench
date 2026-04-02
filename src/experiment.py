@@ -12,7 +12,6 @@ Usage:
 """
 
 import argparse
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,6 +21,7 @@ from inspect_ai.log import EvalLog
 from .data import VIRTUES
 from .tasks import make_virtue_task
 from .analysis import print_comparison_table, print_delta_table
+from .result_artifacts import write_result_artifacts
 
 
 MODELS = [
@@ -184,11 +184,16 @@ def run_experiment(
     if not filename.endswith(".json"):
         filename += ".json"
     results_file = RESULTS_DIR / filename
-    with open(results_file, "w") as f:
-        json.dump(all_results, f, indent=2, default=str)
+    summary_results, logs_file = write_result_artifacts(
+        all_results,
+        results_file,
+        write_logs=detailed,
+    )
     print(f"\nResults saved to: {results_file}")
+    if logs_file:
+        print(f"Detailed logs saved to: {logs_file}")
 
-    return all_results
+    return summary_results
 
 
 def main():
