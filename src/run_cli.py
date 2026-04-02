@@ -19,35 +19,55 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .tasks import load_virtue_csv, BASE_INSTRUCTION, VIRTUES
-from .analysis import print_comparison_table, print_delta_table
+from .data import load_virtue_csv, BASE_INSTRUCTION, VIRTUES
 
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
 
 
-def query_claude(prompt: str, system_prompt: str, model: str) -> str:
+def query_claude(prompt: str, system_prompt: str, model: str, retries: int = 1) -> str:
     """Send a prompt to Claude via `claude -p` and return the response."""
-    full_prompt = f"<system>\n{system_prompt}\n</system>\n\n{prompt}"
-    result = subprocess.run(
-        ["claude", "-p", "--model", model],
-        input=full_prompt,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    if result.returncode != 0:
-        print(f"  [error] claude -p failed: {result.stderr.strip()}", file=sys.stderr)
-        return ""
-    return result.stdout.strip()
+    for attempt in range(1 + retries):
+        try:
+            result = subprocess.run(
+                ["claude", "-p", "--model", model, "--system-prompt", system_prompt, "--no-session-persistence"],
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+        except subprocess.TimeoutExpired:
+            if attempt < retries:
+                print("[timeout, retrying] ", end="", flush=True)
+                continue
+            return ""
+        if result.returncode != 0:
+            if attempt < retries:
+                print("[error, retrying] ", end="", flush=True)
+                continue
+            print(f"  [error] claude -p failed: {result.stderr.strip()}", file=sys.stderr)
+            return ""
+        response = result.stdout.strip()
+        if response or attempt == retries:
+            return response
+        print("[blank, retrying] ", end="", flush=True)
+    return ""
 
 
-def score_response(response: str, target: str) -> bool:
-    """Extract the first 0 or 1 from the response and compare to target."""
+def parse_response(response: str) -> tuple[str | None, str]:
+    """Extract the leading A/B answer and the rationale from a response."""
+    answer = None
     for ch in response:
-        if ch in ("0", "1"):
-            return ch == target
-    return False
+        if ch in ("A", "B"):
+            answer = ch
+            break
+    # Rationale is everything after the "—" or "-" separator, or the whole thing
+    rationale = response
+    for sep in (" — ", " - ", "—"):
+        if sep in response:
+            rationale = response.split(sep, 1)[1].strip()
+            break
+    return answer, rationale
 
 
 def run_virtue(
@@ -57,24 +77,40 @@ def run_virtue(
     limit: int | None,
     seed: int,
     condition_label: str,
+    trace: bool = False,
 ) -> dict:
     """Run all samples for a single virtue and return a result dict."""
     samples = load_virtue_csv(virtue, limit=limit, seed=seed)
     correct = 0
     total = len(samples)
+    trace_data = []
 
     for i, sample in enumerate(samples, 1):
         print(f"  [{i}/{total}] ", end="", flush=True)
         response = query_claude(sample.input, system_prompt, model)
+        answer, rationale = parse_response(response)
+        is_correct = answer == sample.target
 
-        if score_response(response, sample.target):
+        if is_correct:
             correct += 1
             print("correct")
         else:
             print("incorrect")
 
+        if trace:
+            trace_data.append({
+                "id": i,
+                "prompt": sample.input,
+                "target": sample.target,
+                "model_response": response,
+                "model_answer": answer,
+                "correct": is_correct,
+                "explanation": response,
+                "metadata": sample.metadata,
+            })
+
     accuracy = correct / total if total > 0 else 0.0
-    return {
+    result = {
         "model": f"claude-cli/{model}",
         "accuracy": accuracy,
         "stderr": None,
@@ -83,6 +119,9 @@ def run_virtue(
         "virtue": virtue,
         "condition": condition_label,
     }
+    if trace:
+        result["sample_details"] = trace_data
+    return result
 
 
 def run_experiment(
@@ -91,6 +130,7 @@ def run_experiment(
     injection_text: str | None = None,
     limit: int | None = None,
     seed: int = 42,
+    trace: bool = False,
 ) -> list[dict]:
     """Run the full experiment across virtues."""
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -105,7 +145,7 @@ def run_experiment(
 
         # Vanilla
         print(f"\n--- Vanilla ---")
-        result_a = run_virtue(virtue, model, BASE_INSTRUCTION, limit, seed, "vanilla")
+        result_a = run_virtue(virtue, model, BASE_INSTRUCTION, limit, seed, "vanilla", trace)
         all_results.append(result_a)
         print(f"  Accuracy: {result_a['accuracy']:.4f}")
 
@@ -113,7 +153,7 @@ def run_experiment(
         if injection_text:
             injected_prompt = injection_text + "\n\n---\n\n" + BASE_INSTRUCTION
             print(f"\n--- Injected ---")
-            result_b = run_virtue(virtue, model, injected_prompt, limit, seed, "injected")
+            result_b = run_virtue(virtue, model, injected_prompt, limit, seed, "injected", trace)
             all_results.append(result_b)
             print(f"  Accuracy: {result_b['accuracy']:.4f}")
 
@@ -123,7 +163,8 @@ def run_experiment(
                 print(f"\n  Delta: {sign}{delta:.4f}")
 
     # Save results
-    results_file = RESULTS_DIR / f"results_cli_{timestamp}.json"
+    virtues_label = "-".join(virtues)
+    results_file = RESULTS_DIR / f"results_cli_{model}_{virtues_label}_{timestamp}.json"
     with open(results_file, "w") as f:
         json.dump(all_results, f, indent=2, default=str)
     print(f"\nResults saved to: {results_file}")
@@ -169,6 +210,11 @@ def main():
         action="store_true",
         help="Quick smoke test: 10 samples per virtue",
     )
+    parser.add_argument(
+        "--detailed",
+        action="store_true",
+        help="Include per-sample answers, rationales, and correctness in results",
+    )
 
     args = parser.parse_args()
 
@@ -200,11 +246,15 @@ def main():
         injection_text=injection_text,
         limit=args.limit,
         seed=args.seed,
+        trace=args.detailed,
     )
 
-    print_comparison_table(results)
-    if injection_text:
-        print_delta_table(results)
+    # Summary table
+    print(f"\n{'Model':<25} {'Virtue':<12} {'Condition':<10} {'Accuracy':>8} {'Samples':>8}")
+    print("-" * 67)
+    for r in results:
+        acc = f"{r['accuracy']:.4f}" if r.get("accuracy") is not None else "N/A"
+        print(f"{r.get('model',''):<25} {r.get('virtue',''):<12} {r.get('condition',''):<10} {acc:>8} {r.get('samples',''):>8}")
 
 
 if __name__ == "__main__":
