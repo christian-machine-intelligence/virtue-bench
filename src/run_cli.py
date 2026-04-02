@@ -14,40 +14,105 @@ Usage:
 
 import argparse
 import asyncio
-import json
-import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .data import load_virtue_csv, parse_answer, BASE_INSTRUCTION, VIRTUES
+from .result_artifacts import write_result_artifacts
 
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
+NEUTRAL_CWD = "/tmp"
 
 
-async def query_claude(prompt: str, system_prompt: str, model: str, retries: int = 1) -> str:
-    """Send a prompt to Claude via `claude -p` and return the response."""
-    for attempt in range(1 + retries):
+async def query_claude(
+    prompt: str,
+    system_prompt: str,
+    model: str,
+    retries: int = 2,
+    timeout: int = 120,
+) -> dict:
+    """Send a prompt to Claude via `claude -p` and return outcome metadata."""
+    started_at = time.perf_counter()
+    last_error = "unknown"
+    last_stderr = None
+    last_exit_code = None
+
+    for attempt in range(1, retries + 2):
+        proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
-                "claude", "-p", "--model", model, "--system-prompt", system_prompt, "--no-session-persistence", "--setting-sources", "user",
+                "claude", "-p",
+                "--model", model,
+                "--system-prompt", system_prompt,
+                "--no-session-persistence",
+                "--setting-sources", "user",
+                "--tools", "",
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                cwd=NEUTRAL_CWD,
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(prompt.encode()), timeout=120)
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(prompt.encode()),
+                timeout=timeout,
+            )
         except asyncio.TimeoutError:
-            if attempt < retries:
+            if proc is not None:
+                proc.kill()
+                try:
+                    await proc.communicate()
+                except Exception:
+                    pass
+            last_error = "timeout"
+            if attempt <= retries:
                 continue
-            return ""
+            break
+        except FileNotFoundError:
+            last_error = "claude_not_found"
+            break
+        except Exception as exc:
+            last_error = f"spawn_error:{exc.__class__.__name__}"
+            last_stderr = str(exc)
+            if attempt <= retries:
+                continue
+            break
+
+        response = stdout.decode(errors="replace").strip()
+        stderr_text = stderr.decode(errors="replace").strip() or None
+        last_stderr = stderr_text
+        last_exit_code = proc.returncode
+
         if proc.returncode != 0:
-            if attempt < retries:
+            last_error = "nonzero_exit"
+            if attempt <= retries:
                 continue
-            return ""
-        response = stdout.decode().strip()
-        if response or attempt == retries:
-            return response
-    return ""
+            break
+
+        if not response:
+            last_error = "blank_response"
+            if attempt <= retries:
+                continue
+            break
+
+        return {
+            "response": response,
+            "infra_error": None,
+            "attempts": attempt,
+            "latency_ms": round((time.perf_counter() - started_at) * 1000),
+            "exit_code": proc.returncode,
+            "stderr": stderr_text,
+        }
+
+    return {
+        "response": "",
+        "infra_error": last_error,
+        "attempts": retries + 1,
+        "latency_ms": round((time.perf_counter() - started_at) * 1000),
+        "exit_code": last_exit_code,
+        "stderr": last_stderr,
+    }
 
 
 async def run_virtue(
@@ -59,6 +124,8 @@ async def run_virtue(
     condition_label: str,
     trace: bool = False,
     concurrency: int = 5,
+    retries: int = 2,
+    timeout: int = 120,
 ) -> dict:
     """Run all samples for a single virtue concurrently."""
     samples = load_virtue_csv(virtue, limit=limit, seed=seed)
@@ -68,21 +135,38 @@ async def run_virtue(
 
     async def process(i: int, sample):
         async with sem:
-            response = await query_claude(sample.input, system_prompt, model)
-        answer = parse_answer(response)
-        is_correct = answer == sample.target
+            outcome = await query_claude(
+                sample.input,
+                system_prompt,
+                model,
+                retries=retries,
+                timeout=timeout,
+            )
+        response = outcome["response"]
+        answer = parse_answer(response) if outcome["infra_error"] is None else None
+        is_correct = answer == sample.target if outcome["infra_error"] is None else None
         results[i] = {
             "response": response,
             "answer": answer,
             "correct": is_correct,
             "sample": sample,
+            "infra_error": outcome["infra_error"],
+            "attempts": outcome["attempts"],
+            "latency_ms": outcome["latency_ms"],
+            "exit_code": outcome["exit_code"],
+            "stderr": outcome["stderr"],
         }
-        status = "correct" if is_correct else "incorrect"
+        if outcome["infra_error"] is not None:
+            status = f"infra:{outcome['infra_error']}"
+        else:
+            status = "correct" if is_correct else "incorrect"
         print(f"  [{i+1}/{total}] {status}", flush=True)
 
     await asyncio.gather(*(process(i, s) for i, s in enumerate(samples)))
 
-    correct = sum(1 for r in results if r["correct"])
+    scored_results = [r for r in results if r["infra_error"] is None]
+    infra_results = [r for r in results if r["infra_error"] is not None]
+    correct = sum(1 for r in scored_results if r["correct"])
     trace_data = []
     if trace:
         for i, r in enumerate(results):
@@ -97,13 +181,14 @@ async def run_virtue(
                 "metadata": r["sample"].metadata,
             })
 
-    accuracy = correct / total if total > 0 else 0.0
+    scored_total = len(scored_results)
+    accuracy = correct / scored_total if scored_total > 0 else None
     result = {
-        "model": f"claude-cli/{model}",
+        "model": f"claude-p/{model}",
         "accuracy": accuracy,
         "stderr": None,
         "samples": total,
-        "status": "success",
+        "status": "success" if not infra_results else ("failed" if scored_total == 0 else "partial"),
         "virtue": virtue,
         "condition": condition_label,
     }
@@ -120,6 +205,9 @@ async def run_experiment(
     seed: int = 42,
     trace: bool = False,
     concurrency: int = 5,
+    retries: int = 2,
+    timeout: int = 120,
+    output_name: str | None = None,
 ) -> list[dict]:
     """Run the full experiment across virtues."""
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -133,16 +221,40 @@ async def run_experiment(
         print(f"{'='*60}")
 
         print(f"\n--- Vanilla ---")
-        result_a = await run_virtue(virtue, model, BASE_INSTRUCTION, limit, seed, "vanilla", trace, concurrency)
+        result_a = await run_virtue(
+            virtue,
+            model,
+            BASE_INSTRUCTION,
+            limit,
+            seed,
+            "vanilla",
+            trace,
+            concurrency,
+            retries,
+            timeout,
+        )
         all_results.append(result_a)
-        print(f"  Accuracy: {result_a['accuracy']:.4f}")
+        acc_a = f"{result_a['accuracy']:.4f}" if result_a["accuracy"] is not None else "N/A"
+        print(f"  Accuracy: {acc_a}")
 
         if injection_text:
             injected_prompt = injection_text + "\n\n---\n\n" + BASE_INSTRUCTION
             print(f"\n--- Injected ---")
-            result_b = await run_virtue(virtue, model, injected_prompt, limit, seed, "injected", trace, concurrency)
+            result_b = await run_virtue(
+                virtue,
+                model,
+                injected_prompt,
+                limit,
+                seed,
+                "injected",
+                trace,
+                concurrency,
+                retries,
+                timeout,
+            )
             all_results.append(result_b)
-            print(f"  Accuracy: {result_b['accuracy']:.4f}")
+            acc_b = f"{result_b['accuracy']:.4f}" if result_b["accuracy"] is not None else "N/A"
+            print(f"  Accuracy: {acc_b}")
 
             if result_a["accuracy"] is not None and result_b["accuracy"] is not None:
                 delta = result_b["accuracy"] - result_a["accuracy"]
@@ -150,12 +262,20 @@ async def run_experiment(
                 print(f"\n  Delta: {sign}{delta:.4f}")
 
     virtues_label = "-".join(virtues)
-    results_file = RESULTS_DIR / f"results_cli_{model}_{virtues_label}_{timestamp}.json"
-    with open(results_file, "w") as f:
-        json.dump(all_results, f, indent=2, default=str)
+    filename = output_name or f"results_cli_{model}_{virtues_label}_{timestamp}"
+    if not filename.endswith(".json"):
+        filename += ".json"
+    results_file = RESULTS_DIR / filename
+    summary_results, logs_file = write_result_artifacts(
+        all_results,
+        results_file,
+        write_logs=trace,
+    )
     print(f"\nResults saved to: {results_file}")
+    if logs_file:
+        print(f"Detailed logs saved to: {logs_file}")
 
-    return all_results
+    return summary_results
 
 
 def main():
@@ -199,13 +319,31 @@ def main():
     parser.add_argument(
         "--detailed",
         action="store_true",
-        help="Include per-sample answers, rationales, and correctness in results",
+        help="Write per-sample answers, rationales, and debug metadata to *_logs.json",
     )
     parser.add_argument(
         "--concurrency",
         type=int,
         default=5,
         help="Number of concurrent claude -p calls (default: 5)",
+    )
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=2,
+        help="Retries for blank/time-out/failed claude calls (default: 2)",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        help="Timeout in seconds per claude call attempt (default: 120)",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output filename for results JSON (saved in results/)",
     )
 
     args = parser.parse_args()
@@ -223,6 +361,8 @@ def main():
     print(f"Virtues: {virtues}")
     print(f"Limit: {args.limit or 'all'}")
     print(f"Concurrency: {args.concurrency}")
+    print(f"Retries: {args.retries}")
+    print(f"Timeout: {args.timeout}s")
     print(f"Injection: {'yes' if injection_text else 'no'}")
 
     results = asyncio.run(run_experiment(
@@ -233,6 +373,9 @@ def main():
         seed=args.seed,
         trace=args.detailed,
         concurrency=args.concurrency,
+        retries=args.retries,
+        timeout=args.timeout,
+        output_name=args.output,
     ))
 
     print(f"\n{'Model':<25} {'Virtue':<12} {'Condition':<10} {'Accuracy':>8} {'Samples':>8}")
