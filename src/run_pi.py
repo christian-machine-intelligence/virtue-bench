@@ -1,15 +1,15 @@
 """
-Standalone VirtueBench runner using Claude Code's pipe mode (claude -p).
+VirtueBench runner for OpenAI models using pi's print mode (pi -p).
 
-This lets you run the benchmark with a Claude Max subscription instead of
-needing an API key. Each sample is sent to `claude -p` via subprocess.
+Uses the openai-codex provider (ChatGPT Pro subscription) with all
+tools, extensions, skills, and sessions disabled for clean eval.
 
 Usage:
-    python -m src.run_cli                          # full benchmark
-    python -m src.run_cli --quick                   # smoke test (10 per virtue)
-    python -m src.run_cli --subset courage          # single virtue
-    python -m src.run_cli --model opus              # specific model
-    python -m src.run_cli --inject path/to/text.txt # A/B with injected text
+    python -m src.run_codex                          # full benchmark
+    python -m src.run_codex --quick                   # smoke test (10 per virtue)
+    python -m src.run_codex --subset courage          # single virtue
+    python -m src.run_codex --model gpt-5.4           # specific model
+    python -m src.run_codex --detailed                # write per-sample debug logs
 """
 
 import argparse
@@ -25,41 +25,39 @@ RESULTS_DIR = Path(__file__).parent.parent / "results"
 NEUTRAL_CWD = "/tmp"
 
 
-async def query_claude(
+async def query_pi(
     prompt: str,
     system_prompt: str,
     model: str,
-    effort: str | None = None,
+    provider: str = "openai-codex",
+    thinking: str = "off",
     retries: int = 2,
     timeout: int = 120,
 ) -> dict:
-    """Send a prompt to Claude via `claude -p` and return outcome metadata."""
+    """Send a prompt to an OpenAI model via `pi -p` and return outcome metadata."""
     last_error = "unknown"
 
     for attempt in range(1, retries + 2):
         proc = None
         try:
-            cmd = [
-                "claude", "-p",
+            proc = await asyncio.create_subprocess_exec(
+                "pi", "-p",
+                "--provider", provider,
                 "--model", model,
                 "--system-prompt", system_prompt,
-                "--no-session-persistence",
-                "--setting-sources", "",
-                "--tools", "",
-                "--disable-slash-commands",
-                "--strict-mcp-config",
-            ]
-            if effort:
-                cmd.extend(["--effort", effort])
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdin=asyncio.subprocess.PIPE,
+                "--no-tools",
+                "--no-extensions",
+                "--no-skills",
+                "--no-session",
+                "--no-prompt-templates",
+                "--thinking", thinking,
+                prompt,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=NEUTRAL_CWD,
             )
             stdout, stderr = await asyncio.wait_for(
-                proc.communicate(prompt.encode()),
+                proc.communicate(),
                 timeout=timeout,
             )
         except asyncio.TimeoutError:
@@ -74,7 +72,7 @@ async def query_claude(
                 continue
             break
         except FileNotFoundError:
-            last_error = "claude_not_found"
+            last_error = "pi_not_found"
             break
         except Exception as exc:
             last_error = f"spawn_error:{exc.__class__.__name__}"
@@ -109,7 +107,8 @@ async def query_claude(
 async def run_virtue(
     virtue: str,
     model: str,
-    effort: str | None,
+    provider: str,
+    thinking: str,
     system_prompt: str,
     limit: int | None,
     seed: int,
@@ -127,11 +126,12 @@ async def run_virtue(
 
     async def process(i: int, sample):
         async with sem:
-            outcome = await query_claude(
+            outcome = await query_pi(
                 sample.input,
                 system_prompt,
                 model,
-                effort=effort,
+                provider=provider,
+                thinking=thinking,
                 retries=retries,
                 timeout=timeout,
             )
@@ -172,7 +172,7 @@ async def run_virtue(
 
     accuracy = correct / total if not infra_results and total > 0 else None
     result = {
-        "model": f"claude-p/{model}" + (f"@{effort}" if effort else ""),
+        "model": f"pi/{model}" + (f":{thinking}" if thinking != "off" else ""),
         "accuracy": accuracy,
         "stderr": None,
         "samples": total,
@@ -188,7 +188,8 @@ async def run_virtue(
 async def run_experiment(
     virtues: list[str],
     model: str,
-    effort: str | None = None,
+    provider: str = "openai-codex",
+    thinking: str = "off",
     injection_text: str | None = None,
     limit: int | None = None,
     seed: int = 42,
@@ -206,22 +207,13 @@ async def run_experiment(
 
     for virtue in virtues:
         print(f"\n{'='*60}")
-        print(f"Model: {model} (claude -p, concurrency={concurrency}) | Virtue: {virtue}")
+        print(f"Model: {model} (pi -p, concurrency={concurrency}) | Virtue: {virtue}")
         print(f"{'='*60}")
 
         print(f"\n--- Vanilla ---")
         result_a = await run_virtue(
-            virtue,
-            model,
-            effort,
-            BASE_INSTRUCTION,
-            limit,
-            seed,
-            "vanilla",
-            trace,
-            concurrency,
-            retries,
-            timeout,
+            virtue, model, provider, thinking, BASE_INSTRUCTION,
+            limit, seed, "vanilla", trace, concurrency, retries, timeout,
         )
         all_results.append(result_a)
         acc_a = f"{result_a['accuracy']:.4f}" if result_a["accuracy"] is not None else "N/A"
@@ -231,17 +223,8 @@ async def run_experiment(
             injected_prompt = injection_text + "\n\n---\n\n" + BASE_INSTRUCTION
             print(f"\n--- Injected ---")
             result_b = await run_virtue(
-                virtue,
-                model,
-                effort,
-                injected_prompt,
-                limit,
-                seed,
-                "injected",
-                trace,
-                concurrency,
-                retries,
-                timeout,
+                virtue, model, provider, thinking, injected_prompt,
+                limit, seed, "injected", trace, concurrency, retries, timeout,
             )
             all_results.append(result_b)
             acc_b = f"{result_b['accuracy']:.4f}" if result_b["accuracy"] is not None else "N/A"
@@ -253,14 +236,12 @@ async def run_experiment(
                 print(f"\n  Delta: {sign}{delta:.4f}")
 
     virtues_label = "-".join(virtues)
-    filename = output_name or f"results_cli_{model}_{virtues_label}_{timestamp}"
+    filename = output_name or f"results_pi_{model}_{virtues_label}_{timestamp}"
     if not filename.endswith(".json"):
         filename += ".json"
     results_file = RESULTS_DIR / filename
     summary_results, logs_file = write_result_artifacts(
-        all_results,
-        results_file,
-        write_logs=trace,
+        all_results, results_file, write_logs=trace,
     )
     print(f"\nResults saved to: {results_file}")
     if logs_file:
@@ -271,7 +252,7 @@ async def run_experiment(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run VirtueBench using Claude Code pipe mode (claude -p)"
+        description="Run VirtueBench using pi print mode (pi -p)"
     )
     parser.add_argument(
         "--subset",
@@ -280,15 +261,20 @@ def main():
         help="Virtue subset to evaluate (default: all)",
     )
     parser.add_argument(
-        "--model",
-        default="sonnet",
-        help="Claude model name for claude -p (default: sonnet)",
+        "--provider",
+        default="openai-codex",
+        help="Pi provider (default: openai-codex). Also: google-antigravity, google-gemini-cli",
     )
     parser.add_argument(
-        "--effort",
-        choices=["low", "medium", "high", "max"],
-        default="low",
-        help="Reasoning effort for claude -p (default: low)",
+        "--model",
+        default="gpt-5.4",
+        help="Model name for pi (default: gpt-5.4)",
+    )
+    parser.add_argument(
+        "--thinking",
+        choices=["off", "minimal", "low", "medium", "high", "xhigh"],
+        default="off",
+        help="Thinking level for pi (default: off)",
     )
     parser.add_argument(
         "--inject",
@@ -322,19 +308,19 @@ def main():
         "--concurrency",
         type=int,
         default=5,
-        help="Number of concurrent claude -p calls (default: 5)",
+        help="Number of concurrent pi -p calls (default: 5)",
     )
     parser.add_argument(
         "--retries",
         type=int,
         default=2,
-        help="Retries for blank/time-out/failed claude calls (default: 2)",
+        help="Retries for blank/time-out/failed pi calls (default: 2)",
     )
     parser.add_argument(
         "--timeout",
         type=int,
         default=120,
-        help="Timeout in seconds per claude call attempt (default: 120)",
+        help="Timeout in seconds per pi call attempt (default: 120)",
     )
     parser.add_argument(
         "--output",
@@ -354,8 +340,9 @@ def main():
     if args.inject:
         injection_text = Path(args.inject).read_text(encoding="utf-8")
 
-    print(f"Model: {args.model} (via claude -p)")
-    print(f"Effort: {args.effort or 'default'}")
+    print(f"Provider: {args.provider}")
+    print(f"Model: {args.model} (via pi -p)")
+    print(f"Thinking: {args.thinking}")
     print(f"Virtues: {virtues}")
     print(f"Limit: {args.limit or 'all'}")
     print(f"Concurrency: {args.concurrency}")
@@ -366,7 +353,8 @@ def main():
     results = asyncio.run(run_experiment(
         virtues=virtues,
         model=args.model,
-        effort=args.effort,
+        provider=args.provider,
+        thinking=args.thinking,
         injection_text=injection_text,
         limit=args.limit,
         seed=args.seed,

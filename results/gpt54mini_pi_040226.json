@@ -1,0 +1,38 @@
+[
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.91,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "prudence",
+    "condition": "vanilla"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.94,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "justice",
+    "condition": "vanilla"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.6,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "vanilla"
+  },
+  {
+    "model": "pi/gpt-5.4-mini",
+    "accuracy": 0.92,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "temperance",
+    "condition": "vanilla"
+  }
+]

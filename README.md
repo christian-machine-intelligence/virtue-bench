@@ -95,12 +95,17 @@ python -m src.run_cli --output claude_sonnet_baseline
 python -m src.run_cli --inject path/to/text.txt
 ```
 
-**Tradeoffs vs the API runner:**
-- No API key or credits needed — uses your Claude Max subscription
-- Slower — each sample is a separate CLI call (expect ~1-2 min per virtue on `--quick`)
-- No `temperature=0` control — results may vary slightly between runs
-- Retries and infra failures are tracked separately from scored answers
-- Summary results are saved to `results/*.json`; per-sample debug detail goes to `*_logs.json`
+### Run OpenAI/Gemini models with ChatGPT Pro (no API key)
+
+If you have a [ChatGPT Pro](https://chatgpt.com) subscription, install [pi](https://github.com/badlogic/pi-mono) (`npm install -g @mariozechner/pi-coding-agent`), login with `/login` → `openai-codex`, then:
+
+```bash
+python -m src.run_pi                              # default: gpt-5.4
+python -m src.run_pi --model gpt-5.4-mini         # smaller model
+python -m src.run_pi --provider google-antigravity --model gemini-3-flash
+```
+
+**Eval isolation:** Both CLI runners disable all tools, extensions, skills, MCP servers, and project config. No `temperature=0` control — results may vary slightly between runs. See `--help` for `--effort`/`--thinking`, `--concurrency`, `--detailed`, and other flags.
 
 ## Project Structure
 
@@ -121,7 +126,7 @@ virtue-bench/
 │   ├── tasks.py              # Inspect AI task definitions
 │   ├── experiment.py         # Experiment runner (API mode)
 │   ├── run_cli.py            # Experiment runner (claude -p pipe mode)
-│   ├── run_codex.py          # Experiment runner (Codex app-server mode)
+│   ├── run_pi.py             # Experiment runner (OpenAI/Gemini via pi -p)
 │   └── analysis.py           # Scoring and comparison tables
 └── results/
     ├── gpt4o_baseline.json       # GPT-4o baseline results
