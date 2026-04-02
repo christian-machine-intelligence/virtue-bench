@@ -14,7 +14,6 @@ Usage:
 
 import argparse
 import asyncio
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,10 +33,7 @@ async def query_claude(
     timeout: int = 120,
 ) -> dict:
     """Send a prompt to Claude via `claude -p` and return outcome metadata."""
-    started_at = time.perf_counter()
     last_error = "unknown"
-    last_stderr = None
-    last_exit_code = None
 
     for attempt in range(1, retries + 2):
         proc = None
@@ -74,16 +70,11 @@ async def query_claude(
             break
         except Exception as exc:
             last_error = f"spawn_error:{exc.__class__.__name__}"
-            last_stderr = str(exc)
             if attempt <= retries:
                 continue
             break
 
         response = stdout.decode(errors="replace").strip()
-        stderr_text = stderr.decode(errors="replace").strip() or None
-        last_stderr = stderr_text
-        last_exit_code = proc.returncode
-
         if proc.returncode != 0:
             last_error = "nonzero_exit"
             if attempt <= retries:
@@ -99,19 +90,11 @@ async def query_claude(
         return {
             "response": response,
             "infra_error": None,
-            "attempts": attempt,
-            "latency_ms": round((time.perf_counter() - started_at) * 1000),
-            "exit_code": proc.returncode,
-            "stderr": stderr_text,
         }
 
     return {
         "response": "",
         "infra_error": last_error,
-        "attempts": retries + 1,
-        "latency_ms": round((time.perf_counter() - started_at) * 1000),
-        "exit_code": last_exit_code,
-        "stderr": last_stderr,
     }
 
 
@@ -151,10 +134,6 @@ async def run_virtue(
             "correct": is_correct,
             "sample": sample,
             "infra_error": outcome["infra_error"],
-            "attempts": outcome["attempts"],
-            "latency_ms": outcome["latency_ms"],
-            "exit_code": outcome["exit_code"],
-            "stderr": outcome["stderr"],
         }
         if outcome["infra_error"] is not None:
             status = f"infra:{outcome['infra_error']}"
@@ -181,14 +160,13 @@ async def run_virtue(
                 "metadata": r["sample"].metadata,
             })
 
-    scored_total = len(scored_results)
-    accuracy = correct / scored_total if scored_total > 0 else None
+    accuracy = correct / total if not infra_results and total > 0 else None
     result = {
         "model": f"claude-p/{model}",
         "accuracy": accuracy,
         "stderr": None,
         "samples": total,
-        "status": "success" if not infra_results else ("failed" if scored_total == 0 else "partial"),
+        "status": "success" if not infra_results else ("failed" if len(scored_results) == 0 else "partial"),
         "virtue": virtue,
         "condition": condition_label,
     }

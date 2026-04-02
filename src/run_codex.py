@@ -14,6 +14,7 @@ Usage:
 
 import argparse
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 import json
 import subprocess
 import threading
@@ -42,7 +43,6 @@ class CodexAppServer:
         self._notifications = []
         self._lock = threading.Lock()
         self._events = {}
-        self._turn_done = threading.Event()
         self._notification_event = threading.Event()
         self._stderr_thread = None
         self._stderr_lines = deque(maxlen=200)
@@ -95,8 +95,6 @@ class CodexAppServer:
                 with self._lock:
                     self._notifications.append(msg)
                 self._notification_event.set()
-                if msg.get("method") in ("turn/completed", "item/completed"):
-                    self._turn_done.set()
 
     def _stderr_loop(self):
         for line in self.proc.stderr:
@@ -106,15 +104,13 @@ class CodexAppServer:
             with self._lock:
                 self._stderr_lines.append(line)
 
-    def _stderr_snapshot(self) -> str | None:
-        with self._lock:
-            if not self._stderr_lines:
-                return None
-            return "\n".join(self._stderr_lines)
-
     def start(self):
         self.proc = subprocess.Popen(
-            ["codex", "app-server"],
+            [
+                "codex", "app-server",
+                "-c", "web_search=disabled",
+                "-c", "tools.view_image=false",
+            ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -139,18 +135,6 @@ class CodexAppServer:
             raise RuntimeError(f"initialize failed: {resp['error']}")
 
         self._notify("initialized", {})
-
-        # Warm connection with a first thread.
-        resp = self._request("thread/start", {
-            "model": self.model,
-            "approvalPolicy": "never",
-            "sandbox": "read-only",
-            "ephemeral": True,
-            "cwd": NEUTRAL_CWD,
-        })
-        if "error" in resp:
-            raise RuntimeError(f"thread/start failed: {resp['error']}")
-        self.thread_id = resp["result"]["thread"]["id"]
 
     def new_thread(self, system_prompt: str):
         """Start a fresh thread (resets conversation history)."""
@@ -200,7 +184,6 @@ class CodexAppServer:
         timeout: int = 120,
     ) -> dict:
         """Run a single isolated Codex query and return outcome metadata."""
-        started_at = time.perf_counter()
         last_error = "unknown"
 
         for attempt in range(1, retries + 2):
@@ -221,9 +204,6 @@ class CodexAppServer:
                 return {
                     "response": response,
                     "infra_error": None,
-                    "attempts": attempt,
-                    "latency_ms": round((time.perf_counter() - started_at) * 1000),
-                    "stderr": self._stderr_snapshot(),
                 }
 
             last_error = "blank_response"
@@ -234,15 +214,11 @@ class CodexAppServer:
         return {
             "response": "",
             "infra_error": last_error,
-            "attempts": retries + 1,
-            "latency_ms": round((time.perf_counter() - started_at) * 1000),
-            "stderr": self._stderr_snapshot(),
         }
 
     def _query_once(self, prompt: str, system_prompt: str, timeout: int = 120) -> str:
         """Send a single turn on a fresh thread and wait for the matching response."""
         self.new_thread(system_prompt)
-        self._turn_done.clear()
         self._notification_event.clear()
         with self._lock:
             self._notifications.clear()
@@ -278,8 +254,44 @@ class CodexAppServer:
             self.proc.wait(timeout=5)
 
 
+class CodexPool:
+    """Pool of CodexAppServer instances for parallel queries."""
+
+    def __init__(self, model: str, size: int = 5):
+        self.model = model
+        self.size = size
+        self._servers = []
+        self._sem = threading.Semaphore(size)
+        self._pool_lock = threading.Lock()
+
+    def start(self):
+        print(f"Starting {self.size} codex app-server processes...", flush=True)
+        for _ in range(self.size):
+            server = CodexAppServer(self.model)
+            server.start()
+            self._servers.append(server)
+        print(f"All {self.size} connected.")
+
+    def query(self, prompt: str, system_prompt: str, retries: int = 2, timeout: int = 120) -> dict:
+        self._sem.acquire()
+        try:
+            with self._pool_lock:
+                server = self._servers.pop(0)
+            try:
+                return server.query(prompt, system_prompt, retries=retries, timeout=timeout)
+            finally:
+                with self._pool_lock:
+                    self._servers.append(server)
+        finally:
+            self._sem.release()
+
+    def stop(self):
+        for server in self._servers:
+            server.stop()
+
+
 def run_virtue(
-    server: CodexAppServer,
+    pool: CodexPool,
     virtue: str,
     system_prompt: str,
     limit: int | None,
@@ -289,16 +301,13 @@ def run_virtue(
     retries: int = 2,
     timeout: int = 120,
 ) -> dict:
-    """Run all samples for a single virtue and return a result dict."""
+    """Run all samples for a single virtue concurrently via pool."""
     samples = load_virtue_csv(virtue, limit=limit, seed=seed)
-    correct = 0
     total = len(samples)
-    trace_data = []
-    sample_results = []
+    results = [None] * total
 
-    for i, sample in enumerate(samples, 1):
-        print(f"  [{i}/{total}] ", end="", flush=True)
-        outcome = server.query(
+    def process(i, sample):
+        outcome = pool.query(
             sample.input,
             system_prompt,
             retries=retries,
@@ -307,49 +316,47 @@ def run_virtue(
         response = outcome["response"]
         answer = parse_answer(response) if outcome["infra_error"] is None else None
         is_correct = answer == sample.target if outcome["infra_error"] is None else None
-
-        sample_result = {
+        results[i] = {
             "response": response,
             "answer": answer,
             "correct": is_correct,
             "sample": sample,
             "infra_error": outcome["infra_error"],
-            "attempts": outcome["attempts"],
-            "latency_ms": outcome["latency_ms"],
-            "stderr": outcome["stderr"],
         }
-        sample_results.append(sample_result)
-
         if outcome["infra_error"] is not None:
-            print(f"infra:{outcome['infra_error']}")
-        elif is_correct:
-            correct += 1
-            print("correct")
+            status = f"infra:{outcome['infra_error']}"
         else:
-            print("incorrect")
+            status = "correct" if is_correct else "incorrect"
+        print(f"  [{i+1}/{total}] {status}", flush=True)
 
-        if trace:
+    with ThreadPoolExecutor(max_workers=pool.size) as executor:
+        for i, sample in enumerate(samples):
+            executor.submit(process, i, sample)
+
+    infra_failures = sum(1 for r in results if r["infra_error"] is not None)
+    scored = [r for r in results if r["infra_error"] is None]
+    correct = sum(1 for r in scored if r["correct"])
+    trace_data = []
+    if trace:
+        for i, r in enumerate(results):
             trace_data.append({
-                "id": i,
-                "prompt": sample.input,
-                "target": sample.target,
-                "model_response": response,
-                "model_answer": answer,
-                "correct": is_correct,
-                "explanation": response,
-                "metadata": sample.metadata,
+                "id": i + 1,
+                "prompt": r["sample"].input,
+                "target": r["sample"].target,
+                "model_response": r["response"],
+                "model_answer": r["answer"],
+                "correct": r["correct"],
+                "explanation": r["response"],
+                "metadata": r["sample"].metadata,
             })
 
-    scored_results = [r for r in sample_results if r["infra_error"] is None]
-    infra_results = [r for r in sample_results if r["infra_error"] is not None]
-    scored_total = len(scored_results)
-    accuracy = correct / scored_total if scored_total > 0 else None
+    accuracy = correct / total if infra_failures == 0 and total > 0 else None
     result = {
-        "model": f"codex-appserver/{server.model}",
+        "model": f"codex-appserver/{pool.model}",
         "accuracy": accuracy,
         "stderr": None,
         "samples": total,
-        "status": "success" if not infra_results else ("failed" if scored_total == 0 else "partial"),
+        "status": "success" if infra_failures == 0 else ("failed" if infra_failures == total else "partial"),
         "virtue": virtue,
         "condition": condition_label,
     }
@@ -365,6 +372,7 @@ def run_experiment(
     limit: int | None = None,
     seed: int = 42,
     trace: bool = False,
+    concurrency: int = 3,
     retries: int = 2,
     timeout: int = 120,
     output_name: str | None = None,
@@ -373,22 +381,20 @@ def run_experiment(
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    server = CodexAppServer(model)
-    print("Starting codex app-server...", flush=True)
-    server.start()
-    print(f"Connected. Thread: {server.thread_id}")
+    pool = CodexPool(model, size=concurrency)
+    pool.start()
 
     all_results = []
 
     try:
         for virtue in virtues:
             print(f"\n{'='*60}")
-            print(f"Model: {model} (codex app-server) | Virtue: {virtue}")
+            print(f"Model: {model} (codex app-server, concurrency={concurrency}) | Virtue: {virtue}")
             print(f"{'='*60}")
 
             print(f"\n--- Vanilla ---")
             result_a = run_virtue(
-                server,
+                pool,
                 virtue,
                 BASE_INSTRUCTION,
                 limit,
@@ -406,7 +412,7 @@ def run_experiment(
                 injected_prompt = injection_text + "\n\n---\n\n" + BASE_INSTRUCTION
                 print(f"\n--- Injected ---")
                 result_b = run_virtue(
-                    server,
+                    pool,
                     virtue,
                     injected_prompt,
                     limit,
@@ -425,7 +431,7 @@ def run_experiment(
                     sign = "+" if delta >= 0 else ""
                     print(f"\n  Delta: {sign}{delta:.4f}")
     finally:
-        server.stop()
+        pool.stop()
 
     virtues_label = "-".join(virtues)
     filename = output_name or f"results_codex_{model}_{virtues_label}_{timestamp}"
@@ -488,6 +494,12 @@ def main():
         help="Write per-sample answers, rationales, and debug metadata to *_logs.json",
     )
     parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=3,
+        help="Number of parallel codex app-server processes (default: 3)",
+    )
+    parser.add_argument(
         "--retries",
         type=int,
         default=2,
@@ -520,6 +532,7 @@ def main():
     print(f"Model: {args.model} (via codex app-server)")
     print(f"Virtues: {virtues}")
     print(f"Limit: {args.limit or 'all'}")
+    print(f"Concurrency: {args.concurrency}")
     print(f"Retries: {args.retries}")
     print(f"Timeout: {args.timeout}s")
     print(f"Injection: {'yes' if injection_text else 'no'}")
@@ -531,6 +544,7 @@ def main():
         limit=args.limit,
         seed=args.seed,
         trace=args.detailed,
+        concurrency=args.concurrency,
         retries=args.retries,
         timeout=args.timeout,
         output_name=args.output,
