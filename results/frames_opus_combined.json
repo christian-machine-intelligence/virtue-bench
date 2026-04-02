@@ -1,0 +1,38 @@
+[
+  {
+    "model": "claude-p/opus@low",
+    "accuracy": 0.49,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "preserve"
+  },
+  {
+    "model": "claude-p/opus@low",
+    "accuracy": 0.61,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "actual"
+  },
+  {
+    "model": "claude-p/opus@low",
+    "accuracy": 0.59,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "bare"
+  },
+  {
+    "model": "claude-p/opus@low",
+    "accuracy": 0.91,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "resist"
+  }
+]
