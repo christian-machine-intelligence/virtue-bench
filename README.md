@@ -2,7 +2,7 @@
 
 Can a language model choose virtue when the alternative is easier, safer, and more rewarding? VirtueBench is an evaluation benchmark that presents models with 400 paired scenarios across the four classical cardinal virtues — Prudence, Justice, Courage, and Temperance — drawing on the teachings of the Church Doctors: Ambrose, Augustine, and Aquinas.
 
-For the full research paper, see **[Paper.md](Paper.md)**.
+For the full research paper, see **[ICMI-E](https://icmi-proceedings.com/ICMI-E-virtue-under-pressure.html)**.
 
 ## The Benchmark
 
