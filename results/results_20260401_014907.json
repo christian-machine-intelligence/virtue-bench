@@ -1,0 +1,74 @@
+[
+  {
+    "model": "anthropic/claude-sonnet-4-20250514",
+    "accuracy": 0.72,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "prudence",
+    "condition": "vanilla"
+  },
+  {
+    "model": "anthropic/claude-sonnet-4-20250514",
+    "accuracy": 0.76,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "justice",
+    "condition": "vanilla"
+  },
+  {
+    "model": "anthropic/claude-sonnet-4-20250514",
+    "accuracy": 0.56,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "vanilla"
+  },
+  {
+    "model": "anthropic/claude-sonnet-4-20250514",
+    "accuracy": 0.69,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "temperance",
+    "condition": "vanilla"
+  },
+  {
+    "model": "openai/gpt-4o",
+    "accuracy": 0.74,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "prudence",
+    "condition": "vanilla"
+  },
+  {
+    "model": "openai/gpt-4o",
+    "accuracy": 0.71,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "justice",
+    "condition": "vanilla"
+  },
+  {
+    "model": "openai/gpt-4o",
+    "accuracy": 0.33,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "courage",
+    "condition": "vanilla"
+  },
+  {
+    "model": "openai/gpt-4o",
+    "accuracy": 0.77,
+    "stderr": null,
+    "samples": 100,
+    "status": "success",
+    "virtue": "temperance",
+    "condition": "vanilla"
+  }
+]
